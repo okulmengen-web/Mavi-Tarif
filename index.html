@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta charset="UTF-8">
+  <title>MaviTarif Pro - Mutfak Operasyon & Reçete Mühendisliği</title>
+  
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+  <script type="text/javascript">
+    (function(){ emailjs.init("AjU4d6eqgx7iitRmf"); })();
+  </script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <div id="auth-screen" class="auth-wrapper">
+   <div style="position: absolute; top: 15px; right: 15px; display: flex; gap: 12px; z-index: 99998; background: var(--bg-light, #f8fafc); padding: 8px 15px; border-radius: 20px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.05); font-family: system-ui, sans-serif; font-weight: 800;">
+        <button onclick="showLangModal('Sistem dili zaten Türkçe olarak ayarlı.')" style="background:none; border:none; cursor:pointer; padding:0; color: var(--primary, #3b82f6); font-size: 15px; transition: transform 0.2s;" title="Türkçe">TR</button>
+        <button onclick="showLangModal('Bu özellik şu anda kullanılamıyor ama yakın zamanda eklenecek!')" style="background:none; border:none; cursor:pointer; padding:0; color: #64748b; font-size: 15px; opacity: 0.6; transition: all 0.2s;" onmouseover="this.style.color='var(--primary, #3b82f6)'; this.style.opacity='1'" onmouseout="this.style.color='#64748b'; this.style.opacity='0.6'" title="English">EN</button>
+        <button onclick="showLangModal('Bu özellik şu anda kullanılamıyor ama yakın zamanda eklenecek!')" style="background:none; border:none; cursor:pointer; padding:0; color: #64748b; font-size: 15px; opacity: 0.6; transition: all 0.2s;" onmouseover="this.style.color='var(--primary, #3b82f6)'; this.style.opacity='1'" onmouseout="this.style.color='#64748b'; this.style.opacity='0.6'" title="Русский">RU</button>
+        <button onclick="showLangModal('Bu özellik şu anda kullanılamıyor ama yakın zamanda eklenecek!')" style="background:none; border:none; cursor:pointer; padding:0; color: #64748b; font-size: 15px; opacity: 0.6; transition: all 0.2s;" onmouseover="this.style.color='var(--primary, #3b82f6)'; this.style.opacity='1'" onmouseout="this.style.color='#64748b'; this.style.opacity='0.6'" title="Deutsch">DE</button>
+    </div>
+
+    <div id="custom-lang-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.7); z-index: 99999; justify-content: center; align-items: center; backdrop-filter: blur(4px);">
+        <div style="background: white; padding: 30px; border-radius: 16px; max-width: 350px; text-align: center; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); font-family: system-ui, sans-serif;">
+            <div style="font-size: 45px; margin-bottom: 15px;">🌍</div>
+            <h3 style="margin: 0 0 10px 0; color: #1e293b; font-size: 22px;">Dil Seçeneği</h3>
+            <p id="custom-lang-text" style="color: #64748b; font-size: 16px; line-height: 1.5; margin-bottom: 25px;">Mesaj buraya gelecek</p>
+            <button onclick="document.getElementById('custom-lang-modal').style.display='none'" style="background: var(--primary, #3b82f6); color: white; border: none; padding: 12px 25px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);">Tamam, Anladım</button>
+        </div>
+    </div>
+
+    <script>
+        function showLangModal(mesaj) {
+            document.getElementById('custom-lang-text').innerText = mesaj;
+            document.getElementById('custom-lang-modal').style.display = 'flex';
+        }
+    </script>
+
+    <script>
+        function demoLangInline(dil) {
+            let mesaj = dil === 'Türkçe' 
+                ? "Sistem dili zaten Türkçe olarak ayarlı." 
+                : dil + " dil seçeneği MaviTarif'in tam sürümünde aktif olacaktır! 🚀";
+            
+            let tur = dil === 'Türkçe' ? 'success' : 'info';
+            
+            // Eğer özel bildirim sistemi çalışıyorsa onu kullan, bozuksa klasik uyarı ver!
+            if (typeof showToast === 'function') {
+                showToast(mesaj, tur);
+            } else {
+                alert(mesaj);
+            }
+        }
+    </script>
+  
+<style>
+        /* TÜM SİTEYİ KAPLAYAN GECE MODU */
+        body.mavi-dark-theme {
+            background-color: #0f172a !important;
+            color: #f8fafc !important;
+            transition: background-color 0.4s ease, color 0.4s ease;
+        }
+        
+        /* Kartlar, Menüler ve Ana Paneller */
+        .mavi-dark-theme .auth-card,
+        .mavi-dark-theme .soft-card,
+        .mavi-dark-theme .recipe-card,
+        .mavi-dark-theme .modal-content,
+        .mavi-dark-theme #main-app-container,
+        .mavi-dark-theme .dashboard-panel {
+            background-color: #1e293b !important;
+            border: 1px solid #334155 !important;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.4) !important;
+            color: #f8fafc !important;
+        }
+
+        /* Başlıklar ve Metinler */
+        .mavi-dark-theme h1, .mavi-dark-theme h2, .mavi-dark-theme h3, 
+        .mavi-dark-theme h4, .mavi-dark-theme h5, .mavi-dark-theme h6,
+        .mavi-dark-theme .auth-logo {
+            color: #f8fafc !important;
+        }
+        
+        .mavi-dark-theme p, .mavi-dark-theme label, .mavi-dark-theme span:not(.pro-badge) {
+            color: #cbd5e1 !important;
+        }
+
+        /* Girdi Kutuları (Input, Textarea, Select) */
+        .mavi-dark-theme input, 
+        .mavi-dark-theme textarea, 
+        .mavi-dark-theme select {
+            background-color: #0f172a !important;
+            border: 1px solid #334155 !important;
+            color: #f8fafc !important;
+        }
+
+        /* Üst Menü / Navbar (Eğer varsa) */
+        .mavi-dark-theme header, 
+        .mavi-dark-theme .navbar {
+            background-color: #1e293b !important;
+            border-bottom: 1px solid #334155 !important;
+        }
+
+        /* Dil ve Tema Seçici Kutuları */
+        .mavi-dark-theme div[style*="right: 15px"],
+        .mavi-dark-theme button#mavi-theme-btn {
+            background-color: #1e293b !important;
+            border-color: #334155 !important;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3) !important;
+        }
+        .mavi-dark-theme button#mavi-theme-btn span#theme-text {
+            color: #cbd5e1 !important;
+        }
+    </style>
+
+    <button id="mavi-theme-btn" onclick="toggleMaviTheme()" style="position: absolute; top: 15px; left: 15px; z-index: 99998; background: var(--bg-light, #f8fafc); padding: 8px 15px; border-radius: 20px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.05); cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.3s;">
+        <span id="theme-icon" style="font-size: 16px;">🌙</span>
+        <span id="theme-text" style="font-weight: 800; font-family: system-ui, sans-serif; font-size: 14px; color: #64748b;">Gece Modu</span>
+    </button>
+
+    <script>
+        function applySavedTheme() {
+            const savedTheme = localStorage.getItem('MaviTarif_Theme');
+            const btn = document.getElementById('mavi-theme-btn');
+            const icon = document.getElementById('theme-icon');
+            const text = document.getElementById('theme-text');
+
+            if (savedTheme === 'dark') {
+                document.body.classList.add('mavi-dark-theme');
+                if(icon) icon.innerText = '☀️';
+                if(text) { text.innerText = 'Gündüz'; text.style.color = '#f8fafc'; }
+                if(btn) { btn.style.background = '#1e293b'; btn.style.borderColor = '#334155'; }
+            } else {
+                document.body.classList.remove('mavi-dark-theme');
+                if(icon) icon.innerText = '🌙';
+                if(text) { text.innerText = 'Gece Modu'; text.style.color = '#64748b'; }
+                if(btn) { btn.style.background = '#f8fafc'; btn.style.borderColor = '#e2e8f0'; }
+            }
+        }
+
+        function toggleMaviTheme() {
+            const isDark = document.body.classList.contains('mavi-dark-theme');
+            if (isDark) {
+                localStorage.setItem('MaviTarif_Theme', 'light');
+            } else {
+                localStorage.setItem('MaviTarif_Theme', 'dark');
+            }
+            applySavedTheme();
+        }
+
+        applySavedTheme();
+        </script>
+
+    <div class="auth-card soft-card">
+      <div class="auth-logo">💙 MaviTarif <span class="pro-badge">PRO</span></div>
+      
+      <div id="login-module">
+        <h2>Mutfak Paneline Giriş</h2>
+        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">Operasyona devam etmek için bilgilerinizi girin.</p>
+        
+        <div id="login-error-box" style="display:none; background: #fee2e2; color: #991b1b; padding: 10px; border-radius: 8px; font-size: 13px; font-weight: 700; margin-bottom: 15px; border: 1px solid #fca5a5;"></div>
+
+        <form id="loginForm" onsubmit="event.preventDefault(); handleLogin(event);">
+          <div class="form-group">
+            <label>E-Posta Adresi</label>
+            <input type="email" id="login-email" required placeholder="chef@mavitarif.com">
+          </div>
+          <div class="form-group" style="margin-top: 10px; position: relative;">
+            <label>Şifre</label>
+            <input type="password" id="login-pass" required placeholder="••••••••">
+          </div>
+          <button type="submit" class="btn-submit-green" style="width:100%; margin-top:20px;">Sisteme Giriş Yap</button>
+          
+          <button type="button" class="btn-cancel-blue" onclick="handleGuestLogin()" style="width:100%; margin-top:10px; border-color: var(--primary); color: var(--primary); background: #f0f9ff;">👨‍🍳 Misafir Olarak Göz At</button>
+          
+          <div class="auth-switch">
+            <a href="javascript:void(0);" onclick="toggleAuthMode('forgot')">Şifremi Unuttum</a>
+            <br><br>
+            Hesabınız yok mu? <a href="javascript:void(0);" onclick="toggleAuthMode('register')">Kayıt Ol</a>
+          </div>
+        </form>
+      </div>
+
+      <div id="register-module" style="display:none;">
+        <button type="button" class="btn-cancel-blue" onclick="toggleAuthMode('login')" style="margin-bottom: 15px; width: 100%;">⬅️ Giriş Ekranına Dön</button>
+        <h2>Yeni Kullanıcı Kaydı</h2>
+        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">Sisteme katılmak için formu eksiksiz doldurun.</p>
+        
+        <div id="register-error-box" style="display:none; background: #fee2e2; color: #991b1b; padding: 10px; border-radius: 8px; font-size: 13px; font-weight: 700; margin-bottom: 15px; border: 1px solid #fca5a5;"></div>
+
+        <form id="registerForm" onsubmit="event.preventDefault(); handleRegister(event);">
+          <div class="form-group">
+            <label>Adınız ve Soyadınız</label>
+            <input type="text" id="reg-name" required placeholder="Şef Mehmet">
+          </div>
+          
+          <div class="form-group" style="margin-top: 10px;">
+            <label>Kurumsal E-Posta</label>
+            <div class="mobile-email-row">
+              <input type="email" id="reg-email" required placeholder="ornek@mail.com" style="flex:1;">
+              <button type="button" id="btn-send-code" class="btn-cancel-blue btn-code-fix" onclick="sendRegistrationCode('register')">Kodu Gönder</button>
+            </div>
+            <p style="font-size: 11px; color: var(--text-muted); margin-top: 6px; margin-bottom: 0;">* Doğrulama kodunuz <strong>3 dakika</strong> geçerlidir.</p>
+          </div>
+          
+          <div class="form-group" style="margin-top: 10px;">
+            <label>E-Postaya Gelen Doğrulama Kodu</label>
+            <input type="text" id="reg-code" required placeholder="6 Haneli Kod" maxlength="6">
+          </div>
+
+          <div class="form-group" style="margin-top: 10px;">
+            <label>Hesap Güvenlik Sorusu</label>
+            <select id="reg-security-question" required class="pro-select" style="width:100%;">
+              <option value="İlk evcil hayvanınızın adı nedir?">İlk evcil hayvanınızın adı nedir?</option>
+              <option value="En sevdiğiniz Baş Şef kimdir?">En sevdiğiniz Baş Şef kimdir?</option>
+              <option value="Çocukken büyüdüğünüz sokağın adı nedir?">Çocukken büyüdüğünüz sokağın adı nedir?</option>
+              <option value="İlk pişirdiğiniz profesyonel yemek hangisidir?">İlk pişirdiğiniz profesyonel yemek hangisidir?</option>
+              <option value="Annenizin kızlık soyadı nedir?">Annenizin kızlık soyadı nedir?</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-top: 10px;">
+            <label>Güvenlik Sorusu Cevabı</label>
+            <input type="text" id="reg-security-answer" required placeholder="Cevabınızı buraya yazın (Büyük/küçük harf duyarlıdır)">
+          </div>
+         
+          <div class="form-grid-2" style="margin-top: 10px;">
+            <div class="form-group">
+              <label>Güvenli Şifre</label>
+              <input type="password" id="reg-pass" required placeholder="••••••••">
+            </div>
+            <div class="form-group">
+              <label>Şifre Tekrarı</label>
+              <input type="password" id="reg-pass2" required placeholder="••••••••">
+            </div>
+          </div>
+          
+          <button type="submit" class="btn-submit-green" style="width:100%; margin-top:20px;">Doğrula ve Kayıt Ol</button>
+        </form>
+      </div>
+
+      <div id="forgot-module" style="display:none;">
+        <button type="button" class="btn-cancel-blue" onclick="toggleAuthMode('login')" style="margin-bottom: 15px; width: 100%;">⬅️ Giriş Ekranına Dön</button>
+        <h2>Şifre Sıfırlama</h2>
+        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">Şifrenizi sıfırlamak için kayıtlı e-posta adresinize 6 haneli bir kod göndereceğiz.</p>
+        
+        <form id="forgotForm" onsubmit="event.preventDefault(); handleForgotPassword(event);">
+          <div class="form-group">
+            <label>E-Posta Adresiniz</label>
+            <div class="mobile-email-row">
+              <input type="email" id="forgot-email" required placeholder="mail@ornek.com" style="flex:1;">
+              <button type="button" id="btn-send-forgot-code" class="btn-cancel-blue btn-code-fix" onclick="sendRegistrationCode('forgot')">Kod Gönder</button>
+            </div>
+            <p style="font-size: 11px; color: var(--text-muted); margin-top: 6px; margin-bottom: 0;">* Doğrulama kodunuz <strong>3 dakika</strong> geçerlidir.</p>
+          </div>
+          
+          <div class="form-group" id="forgot-code-group" style="margin-top: 10px; display:none;">
+            <label>Sıfırlama Kodu</label>
+            <input type="text" id="forgot-code" placeholder="Gelen 6 Haneli Kod" maxlength="6">
+          </div>
+          
+          <div class="form-group" id="forgot-pass-group" style="margin-top: 10px; display:none;">
+            <label>Yeni Şifre</label>
+            <input type="password" id="forgot-new-pass" placeholder="En az 6 karakter">
+          </div>
+
+          <button type="submit" id="btn-forgot-submit" class="btn-submit-green" style="width:100%; margin-top:20px; display:none;">Şifreyi Güncelle</button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="app-container" id="main-app-container" style="display: none;">
+    <div id="mobile-overlay" class="mobile-overlay" onclick="toggleSidebar()"></div>
+
+    <aside id="main-sidebar" class="sidebar">
+      <div class="logo">💙 MaviTarif <span class="pro-badge">PRO</span></div>
+      
+      <div class="sidebar-profile" onclick="goPage('profile', document.getElementById('nav-profile'))">
+        <div class="profile-avatar-wrapper">
+          <img id="sb-profile-img" src="https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=100&q=80" alt="Avatar">
+        </div>
+        <div class="profile-info">
+          <span id="sb-profile-name" class="profile-name">Kullanıcı Yükleniyor...</span>
+          <span id="sb-profile-role" class="pro-badge" style="width: fit-content; margin-top: 4px; background: #3b82f6;">Kullanıcı</span>
+        </div>
+      </div>
+      
+      <div class="ai-assistant" id="aiAssistantContainer">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3>👨‍🍳 AI Sous Chef</h3>
+            <button type="button" id="btn-ai-expand" class="btn-ai-expand" onclick="toggleAiFullscreen()" title="Büyüt">⛶</button>
+        </div>
+        
+        <div id="aiMessages" class="ai-chat-box">
+          <div class="msg ai"><div class="msg-bubble">Şefim selam! Reçeteler ve mutfak durumu hafızamda. Bana komut ver!</div></div>
+        </div>
+        <div class="ai-quick-commands">
+          <button type="button" class="btn-quick-cmd" onclick="sendQuickAiCmd('Stok durumunu analiz et ve eksikleri listele.')">📋 Stok Analizi</button>
+          <button type="button" class="btn-quick-cmd" onclick="sendQuickAiCmd('Mevcut reçetelerden bugüne özel 3 alternatifli menü tasarla.')">🎯 Menü Önerisi</button>
+        </div>
+        <div class="ai-input-group">
+          <input type="text" id="aiInput" placeholder="Soru sor..." onkeypress="if(event.key==='Enter') sendAiMsg()">
+          <button type="button" onclick="sendAiMsg()">Sor</button>
+        </div>
+      </div>
+
+      <nav class="nav-menu">
+        <div class="sb-item active" id="nav-dash" onclick="goPage('dash', this)">📊 Panel Özeti</div>
+        <div class="sb-item" id="nav-whatihave" onclick="goPage('whatihave', this)">🔍 Bende Ne Var?</div>
+        <div class="sb-item" id="nav-recipes" onclick="goPage('recipes', this)">📖 Reçete Kütüphanesi</div>
+        <div class="sb-item " id="nav-my-recipes" onclick="goPage('my-recipes', this)">📔 Tarif Defterim</div>
+        
+        <div class="sb-item user-only" id="nav-my-requests" onclick="goPage('my-requests', this)" style="position: relative;">
+          ⏳ Taleplerim
+          <span id="badge-my-requests" class="sidebar-badge" style="display:none;">0</span>
+        </div>
+
+        <div class="sb-item member-only" id="nav-dms" onclick="goPage('dms', this)" style="position: relative;">
+          ✉️ İletişim / Destek
+          <span id="badge-dms" class="sidebar-badge" style="display:none;">0</span>
+        </div>
+
+        <div style="margin: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.1);"></div>
+        
+        <div class="sb-item admin-only" id="nav-stock" onclick="goPage('stock', this)">📦 Stok Yönetimi</div>
+        <div class="sb-item admin-only" id="nav-users" onclick="goPage('users', this)">👥 Kullanıcı & Rol Yönetimi</div>
+        
+        <div class="sb-item admin-only" id="nav-approvals" onclick="goPage('approvals', this)" style="position: relative;">
+          ⏳ Bekleyen Onaylar
+          <span id="badge-approvals" class="sidebar-badge" style="display:none;">0</span>
+        </div>
+
+        <div class="sb-item admin-only" id="nav-announcements" onclick="goPage('announcements', this)">📢 Duyuru Yönetimi</div>
+        <div class="sb-item admin-only" id="nav-audit" onclick="goPage('audit', this)">📋 İşlem Kayıtları</div>
+
+        <div class="sb-item" id="nav-profile" onclick="goPage('profile', this)" style="display:none; position: relative;">
+          👨‍🍳 Profil Güvenliği
+        </div>
+      </nav>
+      <button id="super-admin-maintenance-btn" class="btn-cancel-blue" onclick="toggleMaintenanceMode()" style="display: none; width: 100%; margin-top: 10px; font-weight: bold; border-color: var(--amber); color: var(--amber);">
+   🚧 Bakım Modunu Aç/Kapat
+</button>
+      <button type="button" onclick="logOut()" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #ef4444; padding: 12px; border-radius: 10px; margin-top: auto; margin-bottom: 15px; cursor: pointer; font-weight: 800; transition: 0.2s;">🚪 Güvenli Çıkış Yap</button>
+      
+      <div style="color:#64748b; font-size:11px; font-weight:800; line-height: 1.4; text-align: center; padding-bottom: 10px; cursor: default; user-select: none;">
+        MENGEN AŞÇILAR TURİZM<br>MESLEKİ VE TEKNİK<br>ANADOLU LİSESİ
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="mobile-header">
+        <button type="button" class="btn-mobile-menu" onclick="toggleSidebar()">☰ Menü</button>
+        <div class="mobile-logo">💙 MaviTarif PRO</div>
+      </div>
+
+      <section id="page-dash" class="page active">
+        <div class="page-header">
+          <div>
+            <h1 style="display: flex; align-items: center; gap: 10px;">
+              <span onclick="syncCloudDataSilently(); showToast('Sistem bulut ile senkronize edildi.', 'success');" style="cursor: pointer; background: #e0f2fe; color: var(--primary); padding: 4px 8px; border-radius: 8px; font-size: 18px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);" title="Sistemi Manuel Yenile">🔄</span> 
+              Mutfak Yönetim Paneli
+            </h1>
+            <p class="subtitle-text">Restoran operasyon analizi ve genel bakış</p>
+          </div>
+          
+          <div class="header-actions">
+            <button id="btn-inbox" class="btn-cancel-blue" onclick="openInboxModal()" style="position:relative; padding:12px 20px;">
+              📬 Duyuru Kutusu
+              <span id="inbox-badge" style="position:absolute; top:-5px; right:-5px; background:var(--red); color:white; font-size:12px; font-weight:bold; border-radius:50%; width:22px; height:22px; display:none; align-items:center; justify-content:center; box-shadow:0 2px 5px rgba(0,0,0,0.2);">0</span>
+            </button>
+            
+            <button id="btn-support" class="btn-cancel-blue member-only user-only" onclick="openSupportModal()" style="padding:12px 20px; border-color: var(--amber); color: #b45309; background: #fffbeb;">
+              🛠️ Destek İste
+            </button>
+
+            <button id="btn-notifications" class="btn-cancel-blue member-only" onclick="openNotificationsModal()" style="position:relative; padding:12px 20px; border-color: var(--primary); color: var(--primary); background: #eff6ff;">
+              🔔 Bildirimler
+              <span id="badge-notifications" style="position:absolute; top:-5px; right:-5px; background:var(--red); color:white; font-size:12px; font-weight:bold; border-radius:50%; width:22px; height:22px; display:none; align-items:center; justify-content:center; box-shadow:0 2px 5px rgba(0,0,0,0.2);">0</span>
+            </button>
+            
+            <button class="btn-add-recipe-trigger admin-only" style="display: none;" onclick="openAddRecipeModal()">+ Yeni Reçete Üret</button>
+            <button class="btn-add-recipe-trigger user-only" style="display: none; background:var(--amber); color:var(--bg-dark);" onclick="openAddRecipeModal()">+ Reçete Öner</button>
+          </div>
+        </div>
+
+        <div class="stats-row" style="margin-bottom:25px;">
+          <div class="stat-card blue" style="flex:1;">
+            <span class="stat-title">Aktif Reçete</span>
+            <span id="dash-recipe-count" class="stat-value">0 Reçete</span>
+          </div>
+          <div class="stat-card red admin-only" style="flex:1; cursor: pointer;" onclick="goPage('stock', document.getElementById('nav-stock'))" title="Kritik stokları yönetmek için tıklayın">
+            <span class="stat-title">Kritik Envanter</span>
+            <span id="dash-critical-count" class="stat-value">0 Ürün Riskte</span>
+          </div>
+        </div>
+
+        <div class="pro-layout-split">
+          <div class="pro-grid-pane">
+            <div id="dash-recipes-grid" class="recipes-grid"></div>
+          </div>
+          
+          <aside class="right-category-bar desktop-only-category">
+            <div class="category-bar-title">🗂️ Operasyon Paneli</div>
+            <div id="dash-category-row" class="vertical-category-list">
+              <div class="chip active" onclick="filterDashCategory(this, 'all')">🍳 Hepsi</div>
+              <div class="chip" onclick="filterDashCategory(this, 'ana')">🥩 Ana Yemekler</div>
+              <div class="chip" onclick="filterDashCategory(this, 'turk')">🇹🇷 Türk Mutfağı</div>
+              <div class="chip" onclick="filterDashCategory(this, 'mengen')">🧑‍🍳 Mengen Yöresel</div>
+              <div class="chip" onclick="filterDashCategory(this, 'yabanci')">🌍 Dünya Mutfağı</div>
+              <div class="chip" onclick="filterDashCategory(this, 'sos')">🥣 Soslar & Hazırlık</div>
+              <div class="chip" onclick="filterDashCategory(this, 'tatli')">🍰 Tatlılar</div>
+              <div class="chip" onclick="filterDashCategory(this, 'corba')">🍜 Çorbalar</div>
+              <div class="chip" onclick="filterDashCategory(this, 'hamur')">🥐 Hamur İşi</div>
+              <div class="chip" onclick="filterDashCategory(this, 'sokak')">🌭 Sokak Lezzetleri</div>
+              <div class="chip" onclick="filterDashCategory(this, 'meze')">🧆 Mezeler</div>
+              <div class="chip" onclick="filterDashCategory(this, 'kahvalti')">🍳 Kahvaltılık</div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section id="page-dms" class="page">
+        <div class="page-header">
+          <div><h1>✉️ İletişim & Destek Merkezi</h1><p class="subtitle-text">Gelen özel mesajlar ve sistem destek talepleriniz.</p></div>
+          <div class="header-actions">
+            <input type="text" id="dm-search-input" placeholder="🔍 İsim veya mesaj ara..." oninput="renderUserDMs()" style="width: 250px; padding: 10px 16px; border-radius: 10px; border: 1px solid #cbd5e1; outline: none;">
+          </div>
+        </div>
+        <div class="soft-card">
+          <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; flex-wrap: wrap;">
+             <button class="dm-tab active" id="tab-dm-support" onclick="switchDmTab('support')">🛠️ Destek Mesajları ve Yanıtlar</button>
+             <button class="dm-tab" id="tab-dm-inbox" onclick="switchDmTab('inbox')">📩 Yönetimden Gelen Özel Mesajlar</button>
+          </div>
+          <div id="user-dms-list"></div>
+        </div>
+      </section>
+
+      <section id="page-approvals" class="page admin-only">
+        <div class="page-header">
+          <div><h1>⏳ Bekleyen Onaylar</h1><p class="subtitle-text">Kullanıcılardan gelen yeni reçete ve revizyon taleplerini yönetin.</p></div>
+        </div>
+        <div class="pending-recipes-container soft-card" style="margin-bottom: 25px;">
+          <h3 style="margin-bottom: 15px; font-size: 18px; color: var(--bg-dark);">🍽️ Yeni Reçete Onay Kutusu</h3>
+          <p style="font-size: 13px; color: #64748b; margin-bottom: 15px;">Kullanıcılardan gelen tamamen yeni tarif taslakları.</p>
+          <div id="pending-recipes-list"></div>
+        </div>
+        <div class="pending-edits-container soft-card" style="border-left: 5px solid var(--amber);">
+          <h3 style="margin-bottom: 15px; font-size: 18px; color: var(--bg-dark);">🔄 Reçete Revizyon (Düzenleme) Önerileri</h3>
+          <p style="font-size: 13px; color: #64748b; margin-bottom: 15px;">Mevcut tarifleri geliştirmek için gönderilen değişiklik talepleri.</p>
+          <div id="pending-edits-list"></div>
+        </div>
+      </section>
+
+      <section id="page-announcements" class="page admin-only">
+        <div class="page-header">
+          <div><h1>📢 Duyuru Yönetimi</h1><p class="subtitle-text">Tüm ekibin posta kutusuna düşecek duyurular oluşturun.</p></div>
+        </div>
+        <div class="pro-layout-split">
+          <div class="pro-grid-pane">
+            <div class="soft-card" style="margin-bottom: 25px;">
+              <h3 style="margin-top:0;">Yeni Duyuru Yayınla</h3>
+              <form id="announcementForm" onsubmit="event.preventDefault(); publishAnnouncement(event);">
+                <div class="form-group">
+                  <label>Duyuru Başlığı</label>
+                  <input type="text" id="ann-title" required placeholder="Örn: Hafta Sonu Mesaisi Hakkında">
+                </div>
+                <div class="form-group" style="margin-top:15px;">
+                  <label>Duyuru İçeriği</label>
+                  <textarea id="ann-text" rows="4" required placeholder="Tüm ekibe iletilecek mesajı yazın..."></textarea>
+                </div>
+                <button type="submit" class="btn-submit-green" style="margin-top:15px;">📢 Canlıya Al</button>
+              </form>
+            </div>
+            <div class="soft-card">
+              <h3 style="margin-top:0;">Geçmiş Duyurular</h3>
+              <div id="admin-announcement-list" style="max-height: 400px; overflow-y: auto; padding-right: 10px;"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="page-whatihave" class="page">
+        <div class="page-header">
+          <div>
+            <h1>🔍 Bende Ne Var?</h1>
+            <p class="subtitle-text">Gelişmiş akıllı arama ile mutfağınızdaki malzemeleri ekleyin.</p>
+          </div>
+        </div>
+        <div class="fridge-container">
+          <div class="fridge-header-bar">
+            <h3>🛒 Mutfağınızdaki Malzemeleri Yazın:</h3>
+            <button type="button" class="btn-clear-selection" onclick="clearFridgeSelection()">Tümünü Temizle</button>
+          </div>
+          <div class="fridge-search-wrapper" style="position: relative; margin-bottom: 15px;">
+            <input type="text" id="fridge-search-input" class="fridge-search-input" placeholder="Malzeme ara veya yazıp Enter'a bas... (Örn: Roka, Köri, Tavuk)" autocomplete="off" oninput="handleFridgeSearchInput(event)" onkeydown="handleFridgeSearchKeydown(event)">
+            <div id="fridge-suggestions" class="fridge-suggestions-box" style="display:none;"></div>
+          </div>
+          <div id="fridge-selected-tags" class="fridge-selected-tags"></div>
+        </div>
+        <h3 style="margin: 30px 0 15px 0; font-size: 18px; color: var(--bg-dark);">👨‍🍳 Üretim Matrisine Uygun Reçeteler (Sıralı):</h3>
+        <div id="whatihave-results" class="recipes-grid">
+          <div class="empty-state">Yukarıya malzeme eklediğinizde akıllı eşleştirme algoritması otomatik çalışacaktır.</div>
+        </div>
+      </section>
+
+      <section id="page-recipes" class="page">
+        <div class="page-header">
+          <div><h1>Reçete Kütüphanesi</h1><p class="subtitle-text">Tüm reçetelerin standart maliyet kontrol havuzu</p></div>
+          <div class="header-actions">
+            <input type="text" id="searchInput" placeholder="Reçete adı veya malzeme ara..." oninput="filterRecipes()">
+            <select id="lib-sort-select" onchange="filterRecipes()" class="pro-select">
+              <option value="default">Sıralama (Varsayılan)</option>
+              <option value="cost-asc">Maliyet: Düşükten Yükseğe</option>
+              <option value="cost-desc">Maliyet: Yüksekten Düşüğe</option>
+              <option value="rating-desc">Popülarite (Puan: Yüksek)</option>
+              <option value="time-asc">Hazırlık Süresi (Hızlı)</option>
+            </select>
+            <button type="button" id="lib-add-btn" class="btn-add-recipe-trigger admin-only" onclick="openAddRecipeModal()">➕ Yeni Ekle</button>
+            <button type="button" id="lib-add-btn-user" class="btn-add-recipe-trigger user-only" style="background:var(--amber); color:var(--bg-dark);" onclick="openAddRecipeModal()">➕ Reçete Öner</button>
+          </div>
+        </div>
+        <div class="pro-layout-split">
+          <div class="pro-grid-pane">
+            <div id="lib-recipes-grid" class="recipes-grid"></div>
+          </div>
+          <aside class="right-category-bar desktop-only-category">
+            <div class="category-bar-title">🗂️ Kütüphane Kataloğu</div>
+            <div id="lib-category-row" class="vertical-category-list">
+              <div class="chip active" onclick="setLibFilter(this, 'all')">🍳 Tüm Kütüphane</div>
+              <div class="chip" onclick="setLibFilter(this, 'ana')">🥩 Ana Yemekler</div>
+              <div class="chip" onclick="setLibFilter(this, 'turk')">🇹🇷 Türk Mutfağı</div>
+              <div class="chip" onclick="setLibFilter(this, 'mengen')">🧑‍🍳 Mengen Yöresel</div>
+              <div class="chip" onclick="setLibFilter(this, 'yabanci')">🌍 Dünya Mutfağı</div>
+              <div class="chip" onclick="setLibFilter(this, 'sos')">🥣 Soslar & Hazırlık</div>
+              <div class="chip" onclick="setLibFilter(this, 'tatli')">🍰 Tatlılar</div>
+              <div class="chip" onclick="setLibFilter(this, 'corba')">🍜 Çorbalar</div>
+              <div class="chip" onclick="setLibFilter(this, 'hamur')">🥐 Hamur İşi</div>
+              <div class="chip" onclick="setLibFilter(this, 'sokak')">🌭 Sokak Lezzetleri</div>
+              <div class="chip" onclick="setLibFilter(this, 'meze')">🧆 Mezeler</div>
+              <div class="chip" onclick="setLibFilter(this, 'kahvalti')">🍳 Kahvaltılık</div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section id="page-my-requests" class="page user-only">
+        <div class="page-header">
+          <div><h1>⏳ Bekleyen Taleplerim</h1><p class="subtitle-text">Onaya gönderdiğiniz yeni tarifler veya düzenleme önerileriniz.</p></div>
+        </div>
+        <div class="soft-card" style="margin-bottom: 25px;">
+          <h3 style="margin-bottom: 15px; color: var(--bg-dark);">Yeni Tarif Taleplerim</h3>
+          <div id="my-pending-recipes-list"></div>
+        </div>
+        <div class="soft-card" style="margin-bottom: 25px; border-left: 5px solid var(--amber);">
+          <h3 style="margin-bottom: 15px; color: var(--bg-dark);">Düzenleme (Revizyon) Önerilerim</h3>
+          <div id="my-pending-edits-list"></div>
+        </div>
+        <div class="soft-card" style="border-left: 5px solid var(--red);">
+          <h3 style="margin-bottom: 15px; color: var(--red);">❌ Reddedilen / Geçmiş Taleplerim</h3>
+          <div id="my-rejected-list"></div>
+        </div>
+      </section>
+
+      <section id="page-audit" class="page admin-only">
+        <div class="page-header">
+          <div><h1>📋 İşlem Kayıtları (Audit Log)</h1><p class="subtitle-text">Sistem üzerinde yapılan tüm operasyonların zaman damgalı dökümü.</p></div>
+        </div>
+        <div class="soft-card">
+          <div class="table-responsive">
+            <table class="pro-table">
+              <thead><tr><th style="width: 160px;">Tarih / Saat</th><th style="width: 220px;">İşlemi Yapan Şef</th><th>Aksiyon Detayı</th></tr></thead>
+              <tbody id="audit-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="page-my-recipes" class="page">
+        <div class="page-header">
+          <div><h1>📔 Özel Tarif Defterim</h1><p class="subtitle-text">Şefin favori üretim ve operasyon reçeteleri</p></div>
+        </div>
+        <div id="my-recipes-list" class="recipes-grid"></div>
+      </section>
+
+      <section id="page-users" class="page admin-only">
+        <div class="page-header">
+          <div><h1>👥 Kullanıcı ve Rol Yönetimi</h1><p class="subtitle-text">Sisteme kayıtlı kullanıcıları yönetin ve rollerini/unvanlarını düzenleyin.</p></div>
+        </div>
+        
+        <div class="soft-card admin-only" style="margin-bottom: 25px; border-left: 5px solid var(--primary); padding: 25px;">
+          <h3 style="margin-bottom: 10px; color: var(--bg-dark);">➕ Yeni Yönetici (Baş Şef) Oluştur</h3>
+          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px;">Sisteme tam yetkili yeni bir şef hesabı ekleyin.</p>
+          <form id="addAdminForm" onsubmit="event.preventDefault(); handleAddAdmin(event);">
+            <div class="form-grid-4 mobile-grid-fix">
+              <div class="form-group"><label>Ad Soyad</label><input type="text" id="admin-add-name" required placeholder="Örn: Şef Ahmet"></div>
+              <div class="form-group"><label>E-Posta Adresi</label><input type="email" id="admin-add-email" required placeholder="ahmet@mavitarif.com"></div>
+              <div class="form-group"><label>Geçici Şifre Belirle</label><input type="text" id="admin-add-pass" required placeholder="123456" value="123456"></div>
+              <div class="form-group" style="display:flex; align-items:flex-end;"><button type="submit" class="btn-submit-green" style="width: 100%; height: 44px; margin-bottom: 2px;">Yetkili Olarak Kaydet</button></div>
+            </div>
+          </form>
+        </div>
+        
+        <div class="soft-card" style="margin-bottom: 25px; padding: 25px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+             <h3 style="color: var(--bg-dark); margin: 0;">Kayıtlı Kullanıcılar</h3>
+             <input type="text" id="user-search-input" placeholder="🔍 İsim, e-posta veya unvan ara..." class="pro-select" style="width: 250px; padding: 8px 12px; font-weight:normal; background:#f8fafc;" oninput="renderUserManagement()">
+          </div>
+          <div class="table-responsive">
+            <table class="pro-table">
+              <thead><tr><th>Ad Soyad</th><th>E-Posta Adresi</th><th>Sistem Rolü / Unvan</th><th style="width: 280px; text-align: center;">İşlem</th></tr></thead>
+              <tbody id="users-table-body"></tbody>
+            </table>
+          </div>
+          <div style="text-align: center; margin-top: 20px;">
+             <button id="btn-load-more-users" class="btn-cancel-blue" style="padding: 8px 20px; font-size: 13px; display: none;" onclick="loadMoreUsers()">⬇️ Devamını Göster</button>
+          </div>
+        </div>
+        
+        <div class="soft-card" style="border-left: 5px solid var(--red); padding: 25px;">
+          <h3 style="margin-bottom: 15px; color: var(--red);">⛔ Kara Liste (Erişimi Dondurulanlar)</h3>
+          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px;">Buradaki personellerin erişimi durdurulmuştur.</p>
+          <div class="table-responsive">
+            <table class="pro-table">
+              <thead><tr><th>Engellenen E-Posta Adresi</th><th style="width: 220px; text-align: center;">İşlem</th></tr></thead>
+              <tbody id="blacklist-table-body"></tbody>
+            </table>
+          </div>
+          <div style="text-align: center; margin-top: 20px;">
+             <button id="btn-load-more-blacklist" class="btn-cancel-blue" style="padding: 8px 20px; font-size: 13px; display: none;" onclick="loadMoreBlacklist()">⬇️ Devamını Göster</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="page-recipe-detail" class="page">
+        <div class="detail-layout">
+          <div class="detail-left soft-card">
+            <div class="detail-header-action">
+              <button type="button" class="btn-back" onclick="goBackToPrevious()">⬅️ Geri Dön</button>
+              <button type="button" id="btn-kitchen-mode" class="btn-kitchen-mode" onclick="toggleKitchenProductionMode()">👨‍🍳 Pişirme Modunu Aç</button>
+            </div>
+            
+            <div class="detail-main-info">
+              <h1 id="detail-name">Reçete Adı</h1>
+              <div class="detail-badges" id="detail-badges-container"></div>
+              <div class="detail-diet-row" id="detail-diet-container"></div>
+              <div id="detail-security-box" class="info-alert-box admin-only" style="margin-top: 20px; display: none; background: #fffbeb; border-color: #fde68a;">
+                <p style="color: #92400e; font-size: 14px; font-weight: 600;">
+                  🛡️ <strong>Güvenlik & Kayıt Bilgisi:</strong> Bu tarif <span id="detail-author-name" style="font-weight: 800;"></span> (<span id="detail-author-email"></span>) tarafından oluşturulmuştur.
+                </p>
+              </div>
+            </div>
+
+            <div class="img-container soft-img"><img id="detail-img" src="" alt="Reçete Kapak Görseli"></div>
+
+            <div id="detail-content-imgs-section" class="content-imgs-section" style="display: none;">
+              <h3>📸 İçerik Fotoğrafları</h3><div id="detail-content-imgs-grid" class="content-imgs-grid"></div>
+            </div>
+
+            <div class="macros-container">
+              <div class="macro-card"><div id="macro-cal" class="macro-val">0</div><div class="macro-lbl">Kalori (kcal)</div></div>
+              <div class="macro-card"><div id="macro-pro" class="macro-val">0g</div><div class="macro-lbl">Protein</div></div>
+              <div class="macro-card"><div id="macro-fat" class="macro-val">0g</div><div class="macro-lbl">Yağ</div></div>
+              <div class="macro-card"><div id="macro-carbs" class="macro-val">0g</div><div class="macro-lbl">Karbonhidrat</div></div>
+            </div>
+
+            <div class="portion-calculator mobile-order-portion" style="position: relative; z-index: 10;">
+              <h3>🔢 Porsiyon Ayarı</h3>
+              <div class="portion-controls">
+                <button type="button" class="btn-portion" onclick="handlePortionInput(-1)">-</button>
+                <input type="number" id="detail-portion-input" value="4" min="1" readonly>
+                <button type="button" class="btn-portion" onclick="handlePortionInput(1)">+</button>
+                <span class="portion-text">Maliyetlendirme ve miktarlar dinamiktir.</span>
+              </div>
+            </div>
+
+            <div class="mobile-order-mep">
+              <h3>Ön Hazırlık (Mise en Place Listesi)</h3><div id="detail-mep-list" class="mep-checklist-container"></div>
+            </div>
+
+            <div class="mobile-order-steps">
+              <h3>Sıralı Üretim Adımları / Hazırlanışı</h3><div id="steps-list" class="steps-box"></div>
+            </div>
+
+            <div class="mobile-order-ingredients">
+              <h3>Malzemeler & Standart Reçete Maliyet Analizi</h3>
+              <div id="ingredients-list" class="ingredients-box soft-ingredients-box"></div>
+            </div>
+
+            <div class="mobile-order-reviews reviews-section">
+              <h3>💬 Kullanıcı Yorumları ve Değerlendirmeler</h3>
+              <div id="reviews-list-box" class="reviews-list"></div>
+              <div class="review-form-container" id="review-form-wrapper">
+                <h4>✍️ Değerlendirme ve Puan Bırakın</h4>
+                <form id="reviewForm" onsubmit="event.preventDefault(); submitReview(event);">
+                  <div class="form-grid-2" style="margin-bottom:10px;">
+                    <div class="form-group"><label>İsminiz</label><input type="text" id="rev-author" required placeholder="Şef Mehmet"></div>
+                    <div class="form-group"><label>Puanınız</label>
+                      <select id="rev-rating">
+                        <option value="5">⭐⭐⭐⭐⭐ 5 Puan</option>
+                        <option value="4">⭐⭐⭐⭐ 4 Puan</option>
+                        <option value="3">⭐⭐⭐ 3 Puan</option>
+                        <option value="2">⭐⭐ 2 Puan</option>
+                        <option value="1">⭐ 1 Puan</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-group" style="margin-bottom:15px;">
+                    <label>Yorumunuz</label>
+                    <textarea id="rev-text" rows="3" required placeholder="Reçete oranları, malzeme uyumu hakkında geri bildirim yazın..."></textarea>
+                  </div>
+                  <button type="submit" class="btn-submit-review">Yorum Gönder</button>
+                </form>
+              </div>
+            </div>
+
+            <div class="danger-zone mobile-order-delete admin-only" style="margin-top: 30px;">
+              <button type="button" class="btn-delete-recipe" onclick="deleteCurrentRecipe()">🗑️ Bu Reçeteyi Kalıcı Olarak Sil</button>
+            </div>
+           </div>
+
+           <div class="detail-right-wizard soft-card" id="detail-wizard-sidebar">
+            <div class="wizard-header">
+              <h2 id="wizard-main-title">🛠️ Hızlı Düzenleme Sihirbazı</h2>
+              <p id="wizard-main-desc">Reçete mühendisliği güncellemeleri.</p>
+            </div>
+
+            <div id="wizard-lock-overlay" class="wizard-lock-overlay">
+              <span style="font-size: 26px; margin-bottom: 10px;">🔒</span>
+              <p style="font-size: 13px; margin-bottom: 12px; font-weight: 700;">Düzenleme Sistemi Kilitli</p>
+              <button type="button" id="wizard-unlock-btn" onclick="unlockWizard()" class="btn-back" style="background: var(--primary); color: white; border: none; margin-bottom: 0;">Kilidi Aç</button>
+            </div>
+
+            <div id="wizard-content-wrapper" style="display: none; flex-direction: column; gap: 15px;">
+              <div class="wizard-card-white admin-only" id="wizard-admin-tick-box">
+                <label>🔹 Tarif Onay Durumu (Kalp Sistemi)</label>
+                <div id="wizard-tick-display" class="wizard-tick-container"></div>
+                <select id="wizard-tick-select" onchange="updateWizardField('tick', this.value)">
+                  <option value="blue">💙 Mavi Kalp (Bilirkişi Onaylı)</option>
+                  <option value="green">💚 Yeşil Kalp (Çok Puanlı / Popüler)</option>
+                  <option value="grey">🤍 Gri Kalp (Henüz Onaylanmamış)</option>
+                </select>
+              </div>
+
+              <div class="wizard-card-white">
+                <label style="font-weight: bold; margin-bottom: 10px; display: block;">🧬 Makro & Diyet Bilgileri</label>
+                <div class="form-grid-4">
+                  <div class="form-group"><label>Kalori</label><input type="number" id="wizard-cal" onchange="updateWizardMacros()"></div>
+                  <div class="form-group"><label>Pro. (g)</label><input type="number" id="wizard-pro" onchange="updateWizardMacros()"></div>
+                  <div class="form-group"><label>Yağ (g)</label><input type="number" id="wizard-fat" onchange="updateWizardMacros()"></div>
+                  <div class="form-group"><label>Karb. (g)</label><input type="number" id="wizard-carbs" onchange="updateWizardMacros()"></div>
+                </div>
+                <div class="form-group" style="margin-top: 15px;">
+                  <label>Alerjen Amalgamı (Çoklu Seçim)</label>
+                  <div class="checkbox-group-box" id="wizard-allergen-group">
+                    <label class="cb-item"><input type="checkbox" value="Gluten" class="wizard-allergen" onchange="updateWizardAllergens()"> Gluten</label>
+                    <label class="cb-item"><input type="checkbox" value="Laktoz" class="wizard-allergen" onchange="updateWizardAllergens()"> Laktoz</label>
+                    <label class="cb-item"><input type="checkbox" value="Yumurta" class="wizard-allergen" onchange="updateWizardAllergens()"> Yumurta</label>
+                    <label class="cb-item"><input type="checkbox" value="Kuruyemiş" class="wizard-allergen" onchange="updateWizardAllergens()"> Kuruyemiş</label>
+                  </div>
+                </div>
+                <div class="form-group" style="margin-top: 15px;">
+                  <label>Diyet Uygunluğu</label>
+                  <div class="checkbox-group-box" style="background: #f0fdf4; border-color: #bbf7d0;">
+                    <label class="cb-item"><input type="checkbox" id="wizard-is-vegan" onchange="updateWizardDiet()"> 🌱 Vegan</label>
+                    <label class="cb-item"><input type="checkbox" id="wizard-is-vejetaryen" onchange="updateWizardDiet()"> 🥗 Vejetaryen</label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="wizard-card-white">
+                <div class="accordion-header" onclick="toggleAccordion('wizard-cat-content')">
+                  <label style="cursor: pointer; display:flex; justify-content:space-between; width:100%; font-weight: bold;">
+                    🔹 Kategoriler (Çoklu Seçim) <span id="wizard-cat-icon">🔽</span>
+                  </label>
+                </div>
+                <div id="wizard-cat-content" class="accordion-content" style="display: none; margin-top: 10px;">
+                  <div class="checkbox-group-box" id="wizard-cat-group">
+                    <label class="cb-item"><input type="checkbox" value="ana" onchange="updateWizardCategories()"> Ana Yemek</label>
+                    <label class="cb-item"><input type="checkbox" value="turk" onchange="updateWizardCategories()"> Türk Mutfağı</label>
+                    <label class="cb-item"><input type="checkbox" value="mengen" onchange="updateWizardCategories()"> Mengen Yöresel</label>
+                    <label class="cb-item"><input type="checkbox" value="yabanci" onchange="updateWizardCategories()"> Dünya Mutfağı</label>
+                    <label class="cb-item"><input type="checkbox" value="sos" onchange="updateWizardCategories()"> Soslar</label>
+                    <label class="cb-item"><input type="checkbox" value="tatli" onchange="updateWizardCategories()"> Tatlılar</label>
+                    <label class="cb-item"><input type="checkbox" value="corba" onchange="updateWizardCategories()"> Çorbalar</label>
+                    <label class="cb-item"><input type="checkbox" value="hamur" onchange="updateWizardCategories()"> Hamur İşi</label>
+                    <label class="cb-item"><input type="checkbox" value="sokak" onchange="updateWizardCategories()"> Sokak Lezzetleri</label>
+                    <label class="cb-item"><input type="checkbox" value="meze" onchange="updateWizardCategories()"> Mezeler</label>
+                    <label class="cb-item"><input type="checkbox" value="kahvalti" onchange="updateWizardCategories()"> Kahvaltılık</label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="wizard-card-white">
+                <div class="form-group"><label>Tarif Adı</label><input type="text" id="wizard-name" oninput="updateWizardField('name', this.value)"></div>
+                <div class="form-group"><label>Kapak Fotoğrafı URL</label><input type="url" id="wizard-img" oninput="updateWizardField('img', this.value)"></div>
+                <div class="form-group"><label>İçerik Fotoğrafları (Her satıra bir URL)</label><textarea id="wizard-content-imgs" rows="3" oninput="updateWizardContentImgs(this.value)" placeholder="https://example.com/foto1.jpg"></textarea></div>
+                <div class="form-grid-2">
+                  <div class="form-group"><label>Süre</label><input type="text" id="wizard-time" oninput="updateWizardField('time', this.value)"></div>
+                  <div class="form-group"><label>Zorluk</label>
+                    <select id="wizard-diff" onchange="updateWizardField('diff', this.value)">
+                      <option value="Kolay">Kolay</option><option value="Orta">Orta</option><option value="Uzman">Uzman</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-group"><label>Varsayılan Porsiyon</label><input type="number" id="wizard-basePortion" min="1" oninput="updateWizardField('basePortion', parseInt(this.value) || 4)"></div>
+                <div class="form-group admin-only"><label>Özel Satış Fiyatı (₺)</label><input type="number" id="wizard-sale-price" min="0" oninput="updateWizardField('salePrice', parseFloat(this.value) || null)"></div>
+              </div>
+
+              <div class="wizard-card-white">
+                <label>🥕 Toplu Malzeme Ekle (İsim,Miktar,Maliyet)</label>
+                <textarea id="wizard-ingredients" rows="4" oninput="updateWizardIngredients(this.value)" placeholder="Domates,2 adet,20"></textarea>
+              </div>
+              <div class="wizard-card-white">
+                <label>🥗 Ön Hazırlık / Mise en Place</label>
+                <textarea id="wizard-mep" rows="4" oninput="updateWizardMep(this.value)" placeholder="Her satıra bir hazırlık maddesi yazın..."></textarea>
+              </div>
+              <div class="wizard-card-white">
+                <label>📝 Hazırlanış Adımları</label>
+                <textarea id="wizard-steps" rows="6" oninput="updateWizardSteps(this.value)" placeholder="Her satıra bir adım yazın..."></textarea>
+              </div>
+              
+              <button type="button" class="btn-submit-green" id="btn-save-wizard" onclick="submitWizardChanges()" style="margin-top: 10px;">💾 Değişiklikleri Kaydet</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="page-stock" class="page admin-only">
+        <div class="page-header"><h1>Envanter & Kritik Stok Kontrolü</h1></div>
+        <div class="stock-form-container soft-card" style="background: white; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
+          <h3 style="font-size: 16px; margin-bottom: 12px; color: var(--bg-dark);">➕ Yeni Envanter Veri Girişi</h3>
+          <form id="stockForm" onsubmit="event.preventDefault(); handleStockEntry(event);" class="stock-form-mobile">
+            <div class="form-group" style="flex: 2; min-width: 140px;"><label>Malzeme Adı</label><input type="text" id="stock-name" required placeholder="Örn. Yoğurt"></div>
+            <div class="form-group" style="flex: 1; min-width: 90px;"><label>Mevcut Stok</label><input type="number" id="stock-qty" required min="0" placeholder="15"></div>
+            <div class="form-group" style="flex: 1; min-width: 90px;"><label>Kritik Eşik</label><input type="number" id="stock-min" required min="0" placeholder="5"></div>
+            <button type="submit" class="btn-add-recipe-trigger" style="background: var(--wp-green); height: 44px; align-self: flex-end; margin-bottom: 2px;">Envantere Kaydet</button>
+          </form>
+        </div>
+        <div class="table-responsive">
+          <table class="pro-table">
+            <thead><tr><th>Malzeme</th><th style="width: 130px;">Mevcut Miktar</th><th style="width: 130px;">Kritik Limit</th><th>Operasyon Risk Durumu</th><th style="width: 80px; text-align: center;">İşlem</th></tr></thead>
+            <tbody id="stock-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="page-profile" class="page">
+        <div class="page-header"><h1>Profil ve Güvenlik Ayarları</h1></div>
+        
+        <div id="guest-upgrade-card" class="soft-card" style="display: none; margin-bottom: 25px; border-left: 5px solid var(--primary); background: #f0f9ff;">
+          <h3 style="color: var(--primary); margin-bottom: 10px; font-weight:800;">🚀 Hesabınızı Üst Seviyeye Yükseltin</h3>
+          <p style="font-size: 13px; color: var(--text-main); margin-bottom: 15px;">Misafir modundan tam üyeliğe geçerek tarif defteri tutabilir, mutfak operasyonlarına reçete önerebilirsiniz.</p>
+          <form id="upgradeForm" onsubmit="event.preventDefault(); upgradeGuestAccount(event);">
+            
+            <div class="form-group">
+              <label>Kurumsal E-Posta Adresi</label>
+              <div class="mobile-email-row">
+                <input type="email" id="upgrade-email" required placeholder="chef@mavitarif.com" style="flex:1;">
+                <button type="button" id="btn-send-upgrade-code" class="btn-cancel-blue btn-code-fix" onclick="sendRegistrationCode('upgrade')">Kodu Gönder</button>
+              </div>
+              <p style="font-size: 11px; color: var(--text-muted); margin-top: 6px; margin-bottom: 0;">* Doğrulama kodunuz <strong>3 dakika</strong> geçerlidir.</p>
+            </div>
+
+            <div class="form-grid-2 mobile-grid-fix" style="margin-top: 12px;">
+              <div class="form-group"><label>Doğrulama Kodu</label><input type="text" id="upgrade-code" required placeholder="6 Haneli Kod" maxlength="6"></div>
+              <div class="form-group"><label>Güvenli Şifre Belirleyin</label><input type="password" id="upgrade-pass" required placeholder="••••••••"></div>
+            </div>
+
+            <div class="form-group" style="margin-top: 12px;">
+              <label>Hesap Güvenlik Sorusu Seçin</label>
+              <select id="upgrade-security-question" required class="pro-select">
+                <option value="İlk evcil hayvanınızın adı nedir?">İlk evcil hayvanınızın adı nedir?</option>
+                <option value="En sevdiğiniz Baş Şef kimdir?">En sevdiğiniz Baş Şef kimdir?</option>
+                <option value="Çocukken büyüdüğünüz sokağın adı nedir?">Çocukken büyüdüğünüz sokağın adı nedir?</option>
+                <option value="İlk pişirdiğiniz profesyonel yemek hangisidir?">İlk pişirdiğiniz profesyonel yemek hangisidir?</option>
+                <option value="Annenizin kızlık soyadı nedir?">Annenizin kızlık soyadı nedir?</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-top: 10px;">
+              <label>Güvenlik Sorusu Cevabı</label>
+              <input type="text" id="upgrade-security-answer" required placeholder="Cevabınızı girin...">
+            </div>
+
+            <button type="submit" class="btn-submit-green" style="margin-top: 15px; width: 100%;">Bilgileri Doğrula ve Hesabı Yükselt</button>
+          </form>
+        </div>
+
+        <div class="whatsapp-profile-container profile-mobile-fix soft-card" id="profile-main-card">
+          <div class="wp-profile-avatar-section">
+            <img id="profile-current-avatar" src="https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=150&q=80" alt="Avatar">
+            <div class="custom-url-avatar-box" style="margin-top: 15px; width: 100%; border: 1px dashed #cbd5e1; padding: 15px; border-radius: 10px; background: #f8fafc;">
+              <h4 style="font-size: 13px; margin-bottom: 10px; text-align: center; color: var(--text-main);">Yeni Profil Resmi Yükle</h4>
+              <input type="file" id="custom-avatar-file" accept="image/png, image/jpeg, image/jpg" style="width: 100%; font-size: 12px; margin-bottom: 10px;">
+              <button type="button" class="btn-submit-green" onclick="applyCustomAvatarFile()" style="width: 100%; padding: 10px; font-size: 13px;">Resmi Güncelle</button>
+            </div>
+          </div>
+          <div class="wp-profile-fields-section">
+            <h3 style="margin-bottom: 15px; font-size: 18px; color: var(--bg-dark);">👤 Genel Bilgiler</h3>
+            <form id="profileForm" onsubmit="event.preventDefault(); saveProfile(event);">
+              <div class="form-group"><label>Adınız Soyadınız</label><input type="text" id="input-name" required placeholder="Kullanıcı Adı"></div>
+              <div class="form-group" style="margin-top:10px;"><label>Kayıtlı E-Posta</label><input type="email" id="input-email" required placeholder="mail@ornek.com" readonly style="background:#f1f5f9; color:#64748b; cursor:not-allowed;"></div>
+              <div class="form-group" style="margin-top:10px;"><label>Mutfak Mottosu / Biyografi</label><input type="text" id="input-bio" placeholder="Mutfakta kriz yok, planlama var! 👨‍🍳"></div>
+              <button type="submit" class="btn-submit-green" style="margin-top:20px;">💾 Bilgileri Güncelle</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="password-change-container soft-card" style="margin-top: 25px;" id="profile-password-card">
+          <h3 style="margin-bottom: 15px; font-size: 18px; color: var(--bg-dark);">🔒 Güvenlik & Şifre Değiştirme</h3>
+          <p style="font-size: 13px; color: #64748b; margin-bottom: 15px;">Şifrenizi değiştirmek için aşağıdaki alanları doldurun.</p>
+          <form id="passwordChangeForm" onsubmit="event.preventDefault(); changePassword(event);">
+            <div class="form-group" style="max-width: 400px;"><label>Mevcut Şifreniz</label><div class="input-with-icon"><input type="password" id="profile-old-pass" required placeholder="••••••••"><button type="button" class="toggle-password-btn" onclick="toggleInputType('profile-old-pass', this)">👁</button></div></div>
+            <div class="form-grid-2" style="margin-top:10px; max-width: 800px;">
+              <div class="form-group"><label>Yeni Şifre</label><div class="input-with-icon"><input type="password" id="profile-new-pass" required placeholder="••••••••"><button type="button" class="toggle-password-btn" onclick="toggleInputType('profile-new-pass', this)">👁</button></div></div>
+              <div class="form-group"><label>Yeni Şifre (Tekrar)</label><div class="input-with-icon"><input type="password" id="profile-new-pass2" required placeholder="••••••••"><button type="button" class="toggle-password-btn" onclick="toggleInputType('profile-new-pass2', this)">👁</button></div></div>
+            </div>
+            <button type="submit" class="btn-submit-green" style="margin-top:15px; background: var(--amber); box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);">Şifreyi Güncelle</button>
+          </form>
+        </div>
+      </section>
+    </main>
+    <button id="mobile-category-fab" class="mobile-fab" onclick="openMobileCategoryModal()" style="display: none;">🏷️ Kategoriler</button>
+  </div>
+
+  <div id="user-detail-modal" class="modal" style="display: none;">
+    <div class="modal-content soft-modal" style="max-width: 550px;">
+      <div class="modal-header">
+        <h2 style="color:var(--bg-dark);">👤 Personel Detayı</h2>
+        <span class="close-modal" onclick="closeUserDetailModal()">&times;</span>
+      </div>
+      <div id="ud-header" style="display:flex; align-items:center; gap:20px; margin-bottom:25px; padding-bottom:20px; border-bottom:1px solid #e2e8f0;">
+        <img id="ud-avatar" src="" style="width:70px; height:70px; border-radius:50%; object-fit:cover; border:2px solid var(--primary);">
+        <div>
+          <h3 id="ud-name" style="margin:0; font-size:20px; color:var(--bg-dark);">İsim Soyisim</h3>
+          <span id="ud-role" class="badge-stock ok" style="margin-top:5px; display:inline-block;">Rol</span>
+        </div>
+      </div>
+      
+      <div id="super-admin-zone" style="display:none; background:#fef2f2; border:1px solid #fca5a5; padding:15px; border-radius:10px; margin-bottom:25px;">
+        <h4 style="color:#991b1b; margin-bottom:10px; font-size:14px;">🛡️ Süper Yönetici Görüntüleme Alanı</h4>
+        <div style="font-size:13px; color:#7f1d1d; margin-bottom:8px;"><strong>E-Posta:</strong> <span id="ud-email"></span></div>
+        <div style="font-size:13px; color:#7f1d1d; margin-bottom:8px;">
+          <strong>Şifre:</strong> 
+          <span id="ud-pass" style="background:#fee2e2; padding:2px 6px; border-radius:4px; letter-spacing:2px; font-family:monospace;">••••••••</span>
+          <button onclick="toggleUdPass()" style="background:none;border:none;cursor:pointer;font-size:14px;">👁</button>
+          <button onclick="openSuperAdminPassModal()" style="margin-left:10px; background:var(--red); color:white; border:none; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer;">Şifreyi Sıfırla</button>
+        </div>
+        <div style="font-size:13px; color:#7f1d1d; margin-bottom:8px; padding-top:6px; border-top:1px dashed #fca5a5;">
+          <strong>Gizli Güvenlik Sorusu:</strong> <span id="ud-security-q" style="font-weight:700; color:var(--bg-dark);">-</span>
+        </div>
+        <div style="font-size:13px; color:#7f1d1d; margin-bottom:15px;">
+          <strong>Gizli Soru Cevabı:</strong> <span id="ud-security-a" style="font-weight:700; color:var(--primary);">-</span>
+        </div>
+      </div>
+
+      <div style="background:#f8fafc; padding:20px; border-radius:12px; border:1px solid #e2e8f0;">
+        <h3 style="margin-top:0; font-size:16px; margin-bottom:15px;">✉️ Bu Kullanıcıya Özel Mesaj Gönder</h3>
+        <form id="dmForm" onsubmit="event.preventDefault(); sendDirectMessage();">
+          <input type="hidden" id="dm-email">
+          <div class="form-group" style="margin-bottom:10px;"><input type="text" id="dm-subject" required placeholder="Mesaj Konusu"></div>
+          <div class="form-group" style="margin-bottom:15px;"><textarea id="dm-text" rows="3" required placeholder="Mesajınızı buraya yazın..."></textarea></div>
+          <button type="submit" class="btn-submit-green" style="width:100%;">Mesajı İlet</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="super-admin-pass-modal" class="modal" style="display: none; z-index: 2000;">
+    <div class="modal-content soft-modal" style="max-width: 400px; border-top: 5px solid var(--red);">
+      <div class="modal-header">
+        <h2 style="color:var(--red);">🔒 Kullanıcı Şifresini Sıfırla</h2>
+        <span class="close-modal" onclick="closeSuperAdminPassModal()">&times;</span>
+      </div>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px;">Süper Yönetici yetkinizle kullanıcının şifresini kalıcı olarak değiştiriyorsunuz.</p>
+      <input type="hidden" id="sa-pass-email">
+      <div class="form-group" style="margin-bottom: 15px;">
+        <label>Yeni Şifre Belirle</label>
+        <input type="text" id="sa-new-pass" required placeholder="En az 6 karakter">
+      </div>
+      <button type="button" class="btn-submit-green" style="background: var(--red); width: 100%;" onclick="submitSuperAdminPass()">Zorla Değiştir</button>
+    </div>
+  </div>
+
+  <div id="edit-role-modal" class="modal" style="display: none;">
+    <div class="modal-content soft-modal" style="max-width: 400px;">
+      <div class="modal-header">
+        <h2 style="color:var(--bg-dark);">🎖️ Unvan Düzenle</h2>
+        <span class="close-modal" onclick="closeEditRoleModal()">&times;</span>
+      </div>
+      <form onsubmit="submitEditRole(event)">
+        <input type="hidden" id="edit-role-email">
+        <div class="form-group" style="margin-bottom: 15px;">
+          <label>Yeni Özel Unvan Belirle</label>
+          <input type="text" id="edit-role-input" required placeholder="Örn: Sous Chef, Pastane Şefi">
+        </div>
+        <button type="submit" class="btn-submit-green" style="width:100%;">Unvanı Güncelle</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="preview-modal" class="modal" style="display: none; z-index: 1500;">
+    <div class="modal-content soft-modal" style="max-width: 800px; padding: 0; overflow: hidden; background: #f8fafc;">
+      <div class="modal-header" style="background: white; padding: 20px 25px; border-bottom: 1px solid #e2e8f0; margin-bottom: 0;">
+        <h2 style="color:var(--bg-dark); margin:0;">🔍 Reçete Ön İzleme</h2>
+        <span class="close-modal" onclick="document.getElementById('preview-modal').style.display='none'">&times;</span>
+      </div>
+      
+      <div style="padding: 25px; max-height: 80vh; overflow-y: auto;">
+        
+        <div id="preview-type-alert" style="margin-bottom: 20px; padding: 15px; border-radius: 10px; font-size: 14px;"></div>
+        
+        <div class="preview-body" style="background: white; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+          
+          <div style="display: flex; gap: 20px; padding: 25px; border-bottom: 1px solid #e2e8f0; align-items: flex-start;">
+            <div style="position:relative;">
+              <img id="preview-img" src="" style="width: 140px; height: 140px; object-fit: cover; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+              <div id="preview-img-diff" style="position:absolute; bottom:-10px; left:50%; transform:translateX(-50%); white-space:nowrap;"></div>
+            </div>
+            <div style="flex: 1;">
+              <h1 id="preview-recipe-name" style="font-size: 26px; color: var(--bg-dark); margin-bottom: 10px; font-weight: 900;">Tarif Adı</h1>
+              <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 15px; font-weight: 600;">Oluşturan / Düzenleyen: <span id="preview-author" style="color: var(--primary);">Şef</span></div>
+              <div id="preview-badges" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 15px;"></div>
+              
+              <div style="background: #f1f5f9; padding: 12px 15px; border-radius: 10px; font-size: 13px; color: var(--text-main); line-height: 1.6; border: 1px dashed #cbd5e1;" id="preview-extra-info"></div>
+            </div>
+          </div>
+          
+          <div id="preview-content-imgs-section" style="padding: 20px 25px; border-bottom: 1px solid #e2e8f0; display: flex; gap: 10px; overflow-x: auto; background: #fafafa;">
+            <h4 style="margin: 0 0 10px 0; width: 100%; font-size: 14px;">İçerik Fotoğrafları</h4>
+            <div id="preview-content-imgs-container" style="display: flex; gap: 10px;"></div>
+          </div>
+
+          <div style="padding: 25px;">
+            
+            <div id="preview-diff-legend" style="margin-bottom: 20px; font-size: 13px; background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px dashed #cbd5e1; font-weight: 600;">
+              📌 <span style="color:#1e3a8a; background:#eff6ff; padding:2px 6px; border-radius:4px;">Mavi Renk: Yeni Eklenenler</span> | 
+              <span style="color:#991b1b; background:#fee2e2; padding:2px 6px; border-radius:4px; text-decoration:line-through;">Kırmızı Renk: Silinenler</span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px; margin-bottom: 30px;">
+              <div class="macro-card" style="padding: 10px;"><div id="prev-cal" class="macro-val" style="font-size:18px;">0</div><div class="macro-lbl" style="font-size:11px;">Kalori</div></div>
+              <div class="macro-card" style="padding: 10px;"><div id="prev-pro" class="macro-val" style="font-size:18px;">0g</div><div class="macro-lbl" style="font-size:11px;">Pro.</div></div>
+              <div class="macro-card" style="padding: 10px;"><div id="prev-fat" class="macro-val" style="font-size:18px;">0g</div><div class="macro-lbl" style="font-size:11px;">Yağ</div></div>
+              <div class="macro-card" style="padding: 10px;"><div id="prev-carbs" class="macro-val" style="font-size:18px;">0g</div><div class="macro-lbl" style="font-size:11px;">Karb.</div></div>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="soft-ingredients-box" style="padding: 15px; margin-bottom:0;">
+                <h3 style="font-size:16px; margin-bottom:10px;">🛒 Malzemeler</h3>
+                <ul id="preview-ingredients" style="padding-left:20px; font-size:14px; line-height:1.6;"></ul>
+              </div>
+              <div class="steps-box" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px; padding:15px;">
+                <h3 style="font-size:16px; margin-bottom:10px;">📝 Hazırlanış & Adımlar</h3>
+                <ol id="preview-steps" style="padding-left:20px; font-size:14px; line-height:1.6; margin:0;"></ol>
+                
+                <h3 style="font-size:16px; margin-top:20px; margin-bottom:10px;">🥗 Ön Hazırlık (Mise en Place)</h3>
+                <ul id="preview-mep" style="padding-left:20px; font-size:14px; line-height:1.6; margin:0;"></ul>
+              </div>
+            </div>
+            
+          </div>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+
+  <div id="reject-reason-modal" class="modal" style="display: none; z-index: 2500;">
+    <div class="modal-content soft-modal" style="max-width: 400px; border-top: 5px solid var(--red);">
+      <div class="modal-header">
+        <h2 style="color:var(--red);">❌ Reddetme Sebebi</h2>
+        <span class="close-modal" onclick="closeRejectModal()">&times;</span>
+      </div>
+      <form onsubmit="submitRejectReason(event)">
+        <input type="hidden" id="reject-item-id">
+        <input type="hidden" id="reject-item-type">
+        <div class="form-group" style="margin-bottom: 15px;">
+          <label>Kullanıcıya İletilecek Red Nedeni</label>
+          <textarea id="reject-reason-text" rows="3" required placeholder="Örn: Reçete maliyeti çok yüksek, oranlar hatalı..."></textarea>
+        </div>
+        <button type="submit" class="btn-submit-green" style="background: var(--red); width: 100%;">Talebi Kalıcı Olarak Reddet</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="add-recipe-modal" class="modal" style="display: none;">
+    <div class="modal-content soft-modal" style="max-width: 600px; padding: 0; overflow: hidden;">
+      <div class="modal-header" style="background: var(--bg-light); padding: 20px 25px; border-bottom: 1px solid var(--border); margin-bottom:0;">
+        <h2 style="color:var(--bg-dark); margin:0;">➕ Yeni Reçete Oluştur / Öner</h2>
+        <span class="close-modal" onclick="closeAddRecipeModal()">&times;</span>
+      </div>
+      <div style="padding: 25px; max-height: 80vh; overflow-y: auto;">
+        <p style="font-size:13px; color:var(--text-muted); margin-bottom: 20px;">Sisteme yeni bir standart reçete veya operasyon önerisi ekleyin.</p>
+        <form id="addRecipeForm" onsubmit="event.preventDefault(); submitNewRecipe(event);">
+          <div class="form-group" style="margin-bottom:15px;">
+            <label>Reçete / Yemek Adı</label>
+            <input type="text" id="add-name" required placeholder="Örn: Fırınlanmış Kuzu İncik">
+          </div>
+          <div class="form-group" style="margin-bottom:15px;">
+            <label>Kapak Görseli URL</label>
+            <input type="url" id="add-img" required placeholder="https://unsplash.com/foto.jpg">
+          </div>
+          <div class="form-grid-2" style="margin-bottom:15px;">
+            <div class="form-group"><label>Zorluk Derecesi</label>
+              <select id="add-diff">
+                <option value="Kolay">Kolay</option>
+                <option value="Orta">Orta</option>
+                <option value="Uzman">Uzman</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Hazırlık Süresi (Örn: 45 dk)</label><input type="text" id="add-time" required placeholder="45 dk"></div>
+          </div>
+          <div class="form-group" style="margin-bottom:15px;">
+            <label>Varsayılan Porsiyon (1 Ölçek)</label>
+            <input type="number" id="add-portion" min="1" required value="4">
+          </div>
+          <div class="form-group admin-only" style="margin-bottom:15px;">
+            <label>Satış Fiyatı (₺)</label>
+            <input type="number" id="add-sale-price" min="0" placeholder="Boş bırakırsanız sistem hesaplar">
+          </div>
+          
+          <div class="form-group" style="margin-bottom:20px; background: #f8fafc; padding: 15px; border-radius: 10px; border: 1px dashed #cbd5e1;">
+            <label style="margin-bottom:10px; display:block; font-weight:800; color:var(--primary);">Hızlı Malzeme Listesi Ekle (Maliyetle)</label>
+            <p style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">Format: İsim,Miktar,Toplam Fiyat (Her satıra bir tane)</p>
+            <textarea id="add-ingredients" rows="4" placeholder="Kuzu İncik,4 Adet,300&#10;Patates,500g,20" required style="border-color:#cbd5e1;"></textarea>
+          </div>
+
+          <div class="form-group" style="margin-bottom:15px;">
+            <label>Makro Değerler (1 Porsiyon İçin)</label>
+            <div class="form-grid-4">
+              <input type="number" id="add-cal" placeholder="Kalori" min="0">
+              <input type="number" id="add-pro" placeholder="Pro(g)" min="0">
+              <input type="number" id="add-fat" placeholder="Yağ(g)" min="0">
+              <input type="number" id="add-carbs" placeholder="Karb(g)" min="0">
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom:15px;">
+            <label>Kategoriler (Çoklu Seçim)</label>
+            <div class="checkbox-group-box" id="add-cat-group">
+                <label class="cb-item"><input type="checkbox" value="ana"> Ana Yemek</label>
+                <label class="cb-item"><input type="checkbox" value="turk"> Türk Mutfağı</label>
+                <label class="cb-item"><input type="checkbox" value="mengen"> Mengen Yöresel</label>
+                <label class="cb-item"><input type="checkbox" value="yabanci"> Dünya Mutfağı</label>
+                <label class="cb-item"><input type="checkbox" value="sos"> Soslar</label>
+                <label class="cb-item"><input type="checkbox" value="tatli"> Tatlılar</label>
+                <label class="cb-item"><input type="checkbox" value="corba"> Çorbalar</label>
+                <label class="cb-item"><input type="checkbox" value="hamur"> Hamur İşi</label>
+                <label class="cb-item"><input type="checkbox" value="sokak"> Sokak Lezzetleri</label>
+                <label class="cb-item"><input type="checkbox" value="meze"> Mezeler</label>
+                <label class="cb-item"><input type="checkbox" value="kahvalti"> Kahvaltılık</label>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom:15px;">
+            <label>Alerjenler (Çoklu Seçim)</label>
+            <div class="checkbox-group-box">
+                <label class="cb-item"><input type="checkbox" name="add-allergens" value="Gluten"> Gluten</label>
+                <label class="cb-item"><input type="checkbox" name="add-allergens" value="Laktoz"> Laktoz</label>
+                <label class="cb-item"><input type="checkbox" name="add-allergens" value="Yumurta"> Yumurta</label>
+                <label class="cb-item"><input type="checkbox" name="add-allergens" value="Kuruyemiş"> Kuruyemiş</label>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom: 15px;">
+            <label>Diyet Uygunluğu</label>
+            <div class="checkbox-group-box" style="background: #f0fdf4; border-color: #bbf7d0;">
+              <label class="cb-item"><input type="checkbox" id="add-is-vegan"> 🌱 Vegan</label>
+              <label class="cb-item"><input type="checkbox" id="add-is-vejetaryen"> 🥗 Vejetaryen</label>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom:15px;">
+            <label>İçerik Fotoğrafları (Her satıra bir URL - İsteğe Bağlı)</label>
+            <textarea id="add-content-imgs" rows="3" placeholder="https://unsplash.com/foto1.jpg"></textarea>
+          </div>
+
+          <div class="form-group" style="margin-bottom:15px;">
+            <label>Ön Hazırlık (Mise en Place) Adımları</label>
+            <textarea id="add-mep" rows="3" placeholder="Sebzeleri jülyen doğra..."></textarea>
+          </div>
+
+          <div class="form-group" style="margin-bottom:20px;">
+            <label>Sıralı Üretim Adımları</label>
+            <textarea id="add-steps" rows="4" required placeholder="1. Eti mühürle..."></textarea>
+          </div>
+
+          <button type="submit" class="btn-submit-green" style="width: 100%; font-size: 16px; padding: 14px;">🚀 Sisteme Gönder</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="inbox-modal" class="modal" style="display: none;">
+    <div class="modal-content soft-modal" style="max-width: 500px; background: #f8fafc;">
+      <div class="modal-header">
+        <h2 style="color:var(--bg-dark);">📬 Yönetim Duyuruları</h2>
+        <span class="close-modal" onclick="closeInboxModal()">&times;</span>
+      </div>
+      <div id="inbox-list" style="max-height: 60vh; overflow-y: auto; padding-right:5px;"></div>
+    </div>
+  </div>
+
+  <div id="mobile-category-modal" class="modal mobile-only" style="display: none; align-items: flex-end;">
+    <div class="modal-content soft-modal" style="width: 100%; border-radius: 20px 20px 0 0; padding: 25px; margin: 0; max-height: 80vh; animation: slideUp 0.3s ease;">
+      <div class="modal-header" style="margin-bottom: 15px;">
+        <h2 style="font-size: 18px; margin: 0;">🗂️ Kategoriler</h2>
+        <span class="close-modal" onclick="closeMobileCategoryModal()">&times;</span>
+      </div>
+      <div id="mobile-category-container" class="vertical-category-list"></div>
+    </div>
+  </div>
+
+  <div id="support-modal" class="modal" style="display: none;">
+    <div class="modal-content soft-modal" style="max-width: 500px;">
+      <div class="modal-header">
+        <h2 style="color:var(--bg-dark);">🛠️ İletişim & Destek</h2>
+        <span class="close-modal" onclick="closeSupportModal()">&times;</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 15px;">
+        
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 12px; text-align: center;">
+          <h3 style="margin-bottom: 10px; color: var(--bg-dark);">📧 Doğrudan E-Posta Gönder</h3>
+          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px;">Aşağıdaki adrese standart e-posta istemciniz üzerinden mail atabilirsiniz.</p>
+          <div class="btn-submit-green" style="display: inline-block; background: var(--primary); cursor: default; user-select: text;">okulmengen@gmail.com</div>
+        </div>
+        
+        <div style="background: #fffbeb; border: 1px solid #fde68a; padding: 20px; border-radius: 12px;">
+          <h3 style="margin-bottom: 10px; color: #b45309;">📩 Sistemden Mesaj Yolla</h3>
+          <p style="font-size: 13px; color: #92400e; margin-bottom: 15px;">Yönetici paneline doğrudan hata bildirimi veya destek talebi iletin.</p>
+          <form id="supportForm" onsubmit="event.preventDefault(); submitSupportMessage();">
+            <div class="form-group" style="margin-bottom: 10px;">
+              <label>Konu (Bug, Öneri, vb.)</label>
+              <input type="text" id="sup-subject" required placeholder="Mesajınızın konusu">
+            </div>
+            <div class="form-group" style="margin-bottom: 15px;">
+              <label>Mesajınız</label>
+              <textarea id="sup-text" rows="4" required placeholder="Detayları buraya yazın..."></textarea>
+            </div>
+            <button type="submit" class="btn-submit-green" style="width: 100%; background: #b45309; box-shadow: 0 4px 10px rgba(180,83,9,0.3);">Destek Talebini Gönder</button>
+          </form>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div id="notifications-modal" class="modal" style="display: none; z-index: 3000;">
+    <div class="modal-content soft-modal" style="max-width: 450px;">
+      <div class="modal-header">
+        <h2 style="color:var(--bg-dark);">🔔 Bildirim Merkezi</h2>
+        <span class="close-modal" onclick="closeNotificationsModal()">&times;</span>
+      </div>
+      <div id="notifications-list" style="max-height: 60vh; overflow-y: auto;"></div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
