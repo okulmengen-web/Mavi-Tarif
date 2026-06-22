@@ -1642,26 +1642,37 @@ function initApp() {
 
 if (document.readyState === 'loading') { document.addEventListener("DOMContentLoaded", startMaviTarif); } else { startMaviTarif(); }
 // ==========================================
-// 🛠️ MAVİTARİF KUSURSUZ BAKIM MODU (AKILLI KALKAN)
+// 🛡️ MAVİTARİF %100 SUPABASE BAKIM MODU
 // ==========================================
 
 const SUPER_ADMIN = 'okulmengen@gmail.com'; 
 const TESTER_EMAIL = 'saraczuhal@hotmail.com'; 
 let isToggling = false;
-window.maintenanceBlockedView = false; // Bembeyaz sayfa hatasını çözen kilit!
+window.maintenanceBlockedView = false;
 
-// GERİ DÖN BUTONU: Sayfayı yenilemeden giriş ekranına atar
-window.handleMaintenanceBack = function() {
-    window.maintenanceBlockedView = false; // Kilidi aç
+// 🔙 GERİ DÖN VE ÇIKIŞ YAP (Siteden atmama sorununu çözen tam güvenlikli çıkış)
+window.handleMaintenanceBack = async function() {
+    window.maintenanceBlockedView = false;
+    
+    // Supabase'den zorla çıkış yap (Müşteriyi dükkandan kesin olarak atar)
+    if(window.supabaseClient) {
+        await supabaseClient.auth.signOut();
+    }
+    
     let maintScreen = document.getElementById('maintenance-screen');
     const authScreen = document.getElementById('auth-screen');
     if (maintScreen) maintScreen.style.display = 'none';
     if (authScreen) authScreen.style.display = 'flex';
     
-    if (typeof logOut === 'function') logOut();
-    else { localStorage.clear(); sessionStorage.clear(); currentUser = null; }
+    localStorage.clear(); 
+    sessionStorage.clear(); 
+    currentUser = null;
+    
+    // Tarayıcıyı ana sayfaya zorla yönlendir
+    window.location.href = "index.html";
 }
 
+// 🔌 ŞALTERİ İNDİR / KALDIR
 window.toggleMaintenanceMode = async function() {
     if (isToggling) return; 
     isToggling = true;
@@ -1672,52 +1683,60 @@ window.toggleMaintenanceMode = async function() {
         return;
     }
     
-    const isMaintenanceOn = localStorage.getItem('MaviTarif_Maintenance') === 'ON';
-    
-    if (isMaintenanceOn) {
-        localStorage.removeItem('MaviTarif_Maintenance'); 
-        window.maintenanceBlockedView = false;
-        ANNOUNCEMENTS = ANNOUNCEMENTS.filter(a => a.id !== 'SYS_MAINTENANCE');
-        if(window.supabaseClient) await supabaseClient.from('announcements').delete().eq('id', 'SYS_MAINTENANCE');
-        showToast("Bakım Modu KAPATILDI. Mutfak herkese açık.", "success");
-    } else {
-        localStorage.setItem('MaviTarif_Maintenance', 'ON'); 
-        const ghostAnn = { id: 'SYS_MAINTENANCE', title: 'BAKIM', text: 'Sistem bakımda.', date: new Date().toLocaleString('tr-TR'), author: 'SİSTEM' };
-        ANNOUNCEMENTS.push(ghostAnn);
-        if(window.supabaseClient) {
-            await supabaseClient.from('announcements').delete().eq('id', 'SYS_MAINTENANCE');
-            await supabaseClient.from('announcements').insert([ghostAnn]);
+    try {
+        // 1. Supabase'den şalterin şu anki durumunu öğren
+        const { data, error } = await supabaseClient.from('site_settings').select('is_maintenance').eq('id', 1).single();
+        if (error) throw error;
+
+        // 2. Durumu tam tersine çevir (Açıksa kapat, kapalıysa aç)
+        const newState = !data.is_maintenance;
+
+        // 3. Supabase'e yeni durumu kaydet
+        const { error: updateError } = await supabaseClient.from('site_settings').update({ is_maintenance: newState }).eq('id', 1);
+        if (updateError) throw updateError;
+
+        if (newState) {
+            showToast("Bakım Modu AKTİF. Dükkan kilitlendi.", "warning");
+        } else {
+            showToast("Bakım Modu KAPATILDI. Mutfak herkese açık.", "success");
         }
-        showToast("Bakım Modu AKTİF. Güvenlik kalkanı devrede.", "warning");
+        
+        checkMaintenanceStatus(); // Ekranları anında güncelle
+    } catch (err) {
+        console.error("Şalter hatası:", err);
+        showToast("Veritabanı bağlantı hatası!", "error");
+    } finally {
+        setTimeout(() => { isToggling = false; }, 1000); 
     }
-    
-    checkMaintenanceStatus();
-    setTimeout(() => { isToggling = false; }, 1000); 
 }
 
-// 🛡️ AKILLI KALKAN: Sadece butonları yakalar, yazma kutularına (input) karışmaz!
-document.addEventListener('click', function(e) {
-    if (localStorage.getItem('MaviTarif_Maintenance') === 'ON' && !currentUser) {
-        
-        // Sadece butonlara veya linklere tıklandıysa çalış, inputa tıklandıysa pas geç
-        const target = e.target.closest('button') || e.target.closest('a');
-        if (!target) return; 
+// 🕵️ AKILLI KALKAN (Tıklamaları Engelleme)
+document.addEventListener('click', async function(e) {
+    if (currentUser) return; // Kullanıcı zaten içerdeyse karışma
 
-        const text = (target.innerText || '').toLowerCase();
-        const id = (target.id || '').toLowerCase();
-        const onclick = (target.getAttribute('onclick') || '').toLowerCase();
-        
-        // Sadece bu 3 işlemi havada yakala ve blokla (Giriş Yap serbest ki sen girebilesin!)
-        const isRegister = text.includes('kayıt') || id.includes('register') || onclick.includes('register');
-        const isForgot = text.includes('şifre') || id.includes('forgot') || onclick.includes('forgot');
-        const isGuest = text.includes('misafir') || id.includes('guest') || onclick.includes('guest');
+    // Eğer Supabase bağlı değilse işlem yapma
+    if(!window.supabaseClient) return;
 
-        if (isRegister || isForgot || isGuest) {
+    const target = e.target.closest('button') || e.target.closest('a');
+    if (!target) return; 
+
+    const text = (target.innerText || '').toLowerCase();
+    const id = (target.id || '').toLowerCase();
+    const onclick = (target.getAttribute('onclick') || '').toLowerCase();
+    
+    const isRegister = text.includes('kayıt') || id.includes('register') || onclick.includes('register');
+    const isForgot = text.includes('şifre') || id.includes('forgot') || onclick.includes('forgot');
+    const isGuest = text.includes('misafir') || id.includes('guest') || onclick.includes('guest');
+
+    if (isRegister || isForgot || isGuest) {
+        // Sadece giriş yapılmaya çalışıldığında Supabase'den anlık kontrol et
+        const { data } = await supabaseClient.from('site_settings').select('is_maintenance').eq('id', 1).single();
+        
+        if (data && data.is_maintenance) {
             e.preventDefault(); 
             e.stopPropagation(); 
             
-            window.maintenanceBlockedView = true; // Tarayıcı motoruna "ekranı silme" emri
-            
+            window.maintenanceBlockedView = true; 
             let maintScreen = document.getElementById('maintenance-screen');
             const authScreen = document.getElementById('auth-screen');
             if (authScreen) authScreen.style.display = 'none';
@@ -1728,12 +1747,15 @@ document.addEventListener('click', function(e) {
     }
 }, true); 
 
+// 🔄 SÜREKLİ KONTROL MERKEZİ
+window.checkMaintenanceStatus = async function() {
+    if (!window.supabaseClient) return;
 
-window.checkMaintenanceStatus = function() {
-    const dbMaintenanceOn = ANNOUNCEMENTS.find(a => a.id === 'SYS_MAINTENANCE');
-    if (dbMaintenanceOn) localStorage.setItem('MaviTarif_Maintenance', 'ON');
-    
-    const isMaintenanceOn = localStorage.getItem('MaviTarif_Maintenance') === 'ON';
+    // Supabase'den gerçek durumu çek
+    const { data, error } = await supabaseClient.from('site_settings').select('is_maintenance').eq('id', 1).single();
+    if (error || !data) return;
+
+    const isMaintenanceOn = data.is_maintenance;
     
     let maintScreen = document.getElementById('maintenance-screen');
     if(!maintScreen) {
@@ -1754,12 +1776,10 @@ window.checkMaintenanceStatus = function() {
     const authScreen = document.getElementById('auth-screen');
     
     if(!currentUser) {
-        // Eğer kullanıcı engellendi ekranındaysa, ekranı silme!
         if (window.maintenanceBlockedView) {
             maintScreen.style.display = 'flex';
             if(authScreen) authScreen.style.display = 'none';
         } else {
-            // Normal duruyorsa giriş ekranını göster
             maintScreen.style.display = 'none'; 
             if(authScreen) authScreen.style.display = 'flex'; 
         }
@@ -1776,6 +1796,7 @@ window.checkMaintenanceStatus = function() {
             if(appContainer) appContainer.style.display = 'flex';
             if(authScreen) authScreen.style.display = 'none';
         } else {
+            // Normal kullanıcı içerideyken bakım modu açılırsa onu da engelle
             maintScreen.style.display = 'flex';
             if(appContainer) appContainer.style.display = 'none';
             if(authScreen) authScreen.style.display = 'none';
@@ -1785,5 +1806,6 @@ window.checkMaintenanceStatus = function() {
     }
 };
 
-setInterval(checkMaintenanceStatus, 3000);
-checkMaintenanceStatus();
+// Supabase'i yormamak için süreyi 10 saniyeye çıkardık (Ücretsiz paketi korur)
+setInterval(checkMaintenanceStatus, 10000);
+setTimeout(checkMaintenanceStatus, 1000); // İlk açılışta hemen kontrol et
