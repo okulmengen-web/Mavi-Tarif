@@ -13,33 +13,51 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div id="bukalemun-saat" style="position: fixed; bottom: 20px; left: 20px; pointer-events: none; z-index: 99998; display: flex; flex-direction: column; align-items: flex-start; background: var(--bg-light, #f8fafc); padding: 10px 18px; border-radius: 12px; border: 1px solid #e2e8f0; transition: all 0.4s ease;">
+    <span id="ortak-saat" style="font-size: 22px; font-weight: 800; color: var(--primary, #3b82f6);">00:00:00</span>
+    <span id="saat-ayirici" style="display: none; margin: 0 8px; color: #94a3b8; font-size: 14px;">•</span>
+    <span id="ortak-tarih" style="font-size: 13px; font-weight: 600; color: #64748b; margin-top: 4px;">Tarih</span>
+</div>
 
   <div id="toast-container" class="toast-container"></div>
 
   <div id="auth-screen" class="auth-wrapper">
    <div style="position: absolute; top: 15px; right: 15px; display: flex; gap: 12px; z-index: 99998; background: var(--bg-light, #f8fafc); padding: 8px 15px; border-radius: 20px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.05); font-family: system-ui, sans-serif; font-weight: 800;">
-        <button onclick="showLangModal('Sistem dili zaten Türkçe olarak ayarlı.')" style="background:none; border:none; cursor:pointer; padding:0; color: var(--primary, #3b82f6); font-size: 15px; transition: transform 0.2s;" title="Türkçe">TR</button>
-        <button onclick="showLangModal('Bu özellik şu anda kullanılamıyor ama yakın zamanda eklenecek!')" style="background:none; border:none; cursor:pointer; padding:0; color: #64748b; font-size: 15px; opacity: 0.6; transition: all 0.2s;" onmouseover="this.style.color='var(--primary, #3b82f6)'; this.style.opacity='1'" onmouseout="this.style.color='#64748b'; this.style.opacity='0.6'" title="English">EN</button>
-        <button onclick="showLangModal('Bu özellik şu anda kullanılamıyor ama yakın zamanda eklenecek!')" style="background:none; border:none; cursor:pointer; padding:0; color: #64748b; font-size: 15px; opacity: 0.6; transition: all 0.2s;" onmouseover="this.style.color='var(--primary, #3b82f6)'; this.style.opacity='1'" onmouseout="this.style.color='#64748b'; this.style.opacity='0.6'" title="Русский">RU</button>
-        <button onclick="showLangModal('Bu özellik şu anda kullanılamıyor ama yakın zamanda eklenecek!')" style="background:none; border:none; cursor:pointer; padding:0; color: #64748b; font-size: 15px; opacity: 0.6; transition: all 0.2s;" onmouseover="this.style.color='var(--primary, #3b82f6)'; this.style.opacity='1'" onmouseout="this.style.color='#64748b'; this.style.opacity='0.6'" title="Deutsch">DE</button>
+        <button onclick="showLangModal('tr')" style="background:none; border:none; cursor:pointer; padding:0; color: var(--primary, #3b82f6); font-size: 15px; transition: transform 0.2s;" title="Türkçe">TR</button>
+        <button onclick="showLangModal('en')" style="background:none; border:none; cursor:pointer; padding:0; color: #64748b; font-size: 15px; opacity: 0.6; transition: all 0.2s;" onmouseover="this.style.color='var(--primary, #3b82f6)'; this.style.opacity='1'" onmouseout="this.style.color='#64748b'; this.style.opacity='0.6'" title="English">EN</button>
+        <button onclick="showLangModal('ru')" style="background:none; border:none; cursor:pointer; padding:0; color: #64748b; font-size: 15px; opacity: 0.6; transition: all 0.2s;" onmouseover="this.style.color='var(--primary, #3b82f6)'; this.style.opacity='1'" onmouseout="this.style.color='#64748b'; this.style.opacity='0.6'" title="Русский">RU</button>
+        <button onclick="showLangModal('de')" style="background:none; border:none; cursor:pointer; padding:0; color: #64748b; font-size: 15px; opacity: 0.6; transition: all 0.2s;" onmouseover="this.style.color='var(--primary, #3b82f6)'; this.style.opacity='1'" onmouseout="this.style.color='#64748b'; this.style.opacity='0.6'" title="Deutsch">DE</button>
     </div>
 
     <div id="custom-lang-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.7); z-index: 99999; justify-content: center; align-items: center; backdrop-filter: blur(4px);">
-        <div style="background: white; padding: 30px; border-radius: 16px; max-width: 350px; text-align: center; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); font-family: system-ui, sans-serif;">
+        <div class="soft-card" style="background: white; padding: 30px; border-radius: 16px; max-width: 350px; text-align: center; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); font-family: system-ui, sans-serif; transition: all 0.3s ease;">
             <div style="font-size: 45px; margin-bottom: 15px;">🌍</div>
             <h3 style="margin: 0 0 10px 0; color: #1e293b; font-size: 22px;">Dil Seçeneği</h3>
-            <p id="custom-lang-text" style="color: #64748b; font-size: 16px; line-height: 1.5; margin-bottom: 25px;">Mesaj buraya gelecek</p>
+            <p id="custom-lang-text" style="color: #64748b; font-size: 15px; line-height: 1.5; margin-bottom: 25px;"></p>
             <button onclick="document.getElementById('custom-lang-modal').style.display='none'" style="background: var(--primary, #3b82f6); color: white; border: none; padding: 12px 25px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);">Tamam, Anladım</button>
         </div>
     </div>
 
     <script>
-        function showLangModal(mesaj) {
-            document.getElementById('custom-lang-text').innerText = mesaj;
+        function showLangModal(dil) {
+            let icerik = "";
+            const trMesaj = "Bu özellik şu anda kullanılamıyor ama yakın zamanda eklenecek!";
+            
+            if (dil === 'tr') { 
+                icerik = "Sistem dili zaten Türkçe olarak ayarlı."; 
+            } else if (dil === 'en') { 
+                icerik = trMesaj + "<br><br><span style='color: var(--primary, #3b82f6); font-style: italic;'>This feature is currently unavailable but will be added soon! 🇬🇧</span>"; 
+            } else if (dil === 'ru') { 
+                icerik = trMesaj + "<br><br><span style='color: var(--primary, #3b82f6); font-style: italic;'>Эта функция в настоящее время недоступна, но скоро будет добавлена! 🇷🇺</span>"; 
+            } else if (dil === 'de') { 
+                icerik = trMesaj + "<br><br><span style='color: var(--primary, #3b82f6); font-style: italic;'>Diese Funktion ist derzeit nicht verfügbar, wird aber bald hinzugefügt! 🇩🇪</span>"; 
+            }
+            
+            document.getElementById('custom-lang-text').innerHTML = icerik;
             document.getElementById('custom-lang-modal').style.display = 'flex';
         }
     </script>
-
+    
     <script>
         function demoLangInline(dil) {
             let mesaj = dil === 'Türkçe' 
@@ -121,7 +139,70 @@
         <span id="theme-icon" style="font-size: 16px;">🌙</span>
         <span id="theme-text" style="font-weight: 800; font-family: system-ui, sans-serif; font-size: 14px; color: #64748b;">Gece Modu</span>
     </button>
+   <script>
+function mutfakSaatiniGuncelle() {
+    const simdi = new Date();
+    
+    const saat = String(simdi.getHours()).padStart(2, '0');
+    const dakika = String(simdi.getMinutes()).padStart(2, '0');
+    const saniye = String(simdi.getSeconds()).padStart(2, '0');
+    
+    const tamTarih = simdi.toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+    const kisaTarih = simdi.toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' });
+    
+    const saatKutusu = document.getElementById('bukalemun-saat');
+    const saatYazisi = document.getElementById('ortak-saat');
+    const ayirici = document.getElementById('saat-ayirici');
+    const tarihYazisi = document.getElementById('ortak-tarih');
 
+    if (!saatKutusu) return;
+
+    // Saniyeleri tıkır tıkır işlet
+    saatYazisi.innerText = `${saat}:${dakika}:${saniye}`;
+
+    // Ekran kontrolü
+    const girisEkrani = document.getElementById('auth-screen');
+    const sefIcerideMi = girisEkrani && (girisEkrani.style.display === 'none' || girisEkrani.classList.contains('hidden'));
+
+    if (!sefIcerideMi) {
+        // 🚪 DIŞ KAPI (Tasarım zaten HTML'de var, sadece tarihi tam yaz)
+        tarihYazisi.innerText = tamTarih;
+        
+        // Eğer içeriden "Çıkış Yap" dediysek dev saate geri dönme ayarları:
+        saatKutusu.style.bottom = "20px"; 
+        saatKutusu.style.top = "auto";    
+        saatKutusu.style.left = "20px";
+        saatKutusu.style.right = "auto"; 
+        saatKutusu.style.flexDirection = "column";
+        saatKutusu.style.background = "var(--bg-light, #f8fafc)";
+        saatKutusu.style.padding = "10px 18px";
+        saatYazisi.style.fontSize = "22px";
+        tarihYazisi.style.fontSize = "13px";
+        tarihYazisi.style.marginTop = "4px";
+        ayirici.style.display = "none"; 
+        
+    } else {
+        // 🍽️ İÇERİSİ DURUMU (Küçülüp sağ üste uçma ayarları)
+        tarihYazisi.innerText = kisaTarih; 
+        
+        saatKutusu.style.top = "20px";  
+        saatKutusu.style.bottom = "auto"; 
+        saatKutusu.style.right = "25px"; 
+        saatKutusu.style.left = "auto";  
+        saatKutusu.style.flexDirection = "row"; 
+        saatKutusu.style.background = "rgba(59, 130, 246, 0.05)";
+        saatKutusu.style.padding = "4px 12px";
+        saatYazisi.style.fontSize = "14px"; 
+        tarihYazisi.style.fontSize = "12px"; 
+        tarihYazisi.style.marginTop = "0px";
+        ayirici.style.display = "inline"; 
+    }
+}
+
+// Zaman gecikmesini önlemek için doğrudan ilk fırlatmayı yap
+mutfakSaatiniGuncelle();
+setInterval(mutfakSaatiniGuncelle, 1000);
+</script>
     <script>
         function applySavedTheme() {
             const savedTheme = localStorage.getItem('MaviTarif_Theme');
