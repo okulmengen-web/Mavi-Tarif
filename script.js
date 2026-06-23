@@ -10,7 +10,7 @@ var emailjsServiceId = 'service_vhwzf9p';
 var emailjsTemplateId = 'template_oz2e5kk';
 var emailjsPublicKey = 'AjU4d6eqgx7iitRmf';
 
-var geminiApiKey = "AQ.Ab8RN6KaGNu2gDbiqpX0jvLSrr_eq-23dWUvtmkYWnH5zrYsGw";
+var geminiApiKey = 'AQ.Ab8RN6KaGNu2gDbiqpX0jvLSrr_eq-23dWUvtmkYWnH5zrYsGw';
 
 const MASTER_ADMIN = 'okulmengen@gmail.com';
 const ADMIN_EMAILS = ['spotify201122@gmail.com', 'okulmengen@gmail.com'];
@@ -308,59 +308,91 @@ async function startMaviTarif() {
     document.getElementById('auth-screen').style.display = 'flex'; document.getElementById('main-app-container').style.display = 'none';
 }
 
-function applyAuthUI() {
+  function applyAuthUI() {
     if(!currentUser) return;
-    document.getElementById('sb-profile-name').textContent = currentUser.name; 
+    
+    const nameBadge = document.getElementById('sb-profile-name');
+    if (nameBadge) nameBadge.textContent = currentUser.name; 
+    
     const roleBadge = document.getElementById('sb-profile-role');
     const adminElements = document.querySelectorAll('.admin-only');
     const userElements = document.querySelectorAll('.user-only');
+    
+    // 🚨 HATAYI ÇÖZEN GÜVENLİK KALKANI: scoreEl'i baştan ve güvenli tanımlıyoruz
     let scoreEl = document.getElementById('sb-profile-score');
-    if(!scoreEl) {
+    if(!scoreEl && roleBadge && roleBadge.parentNode) {
         scoreEl = document.createElement('div');
         scoreEl.id = 'sb-profile-score';
         roleBadge.parentNode.appendChild(scoreEl);
     }
     
-    if (currentUser.role === 'admin') {
-        scoreEl.innerHTML = `<div style="margin-top:6px; font-size:11px; font-weight:800; color:#1e3a8a; background:#eff6ff; border:1px solid #bfdbfe; padding:3px 8px; border-radius:6px; display:inline-block;">🛡️ Sistem Yöneticisi</div>`;
-    } else if (currentUser.role !== 'guest') {
-        let scoreData = getUserScore(currentUser.email);
-        if(scoreData.count > 0) {
-            scoreEl.innerHTML = `<div style="margin-top:6px; font-size:11px; font-weight:800; color:#b45309; background:#fffbeb; border:1px solid #fde68a; padding:3px 8px; border-radius:6px; display:inline-block; box-shadow:0 2px 5px rgba(245,158,11,0.1);">⭐ ${scoreData.avg.toFixed(1)} İtibar</div>`;
+    if (scoreEl) {
+        if (currentUser.role === 'admin') {
+            scoreEl.innerHTML = `<div style="margin-top:6px; font-size:11px; font-weight:800; color:#1e3a8a; background:#eff6ff; border:1px solid #bfdbfe; padding:3px 8px; border-radius:6px; display:inline-block;">🛡️ Sistem Yöneticisi</div>`;
+        } else if (currentUser.role !== 'guest') {
+            let scoreData = getUserScore(currentUser.email);
+            if(scoreData.count > 0) {
+                scoreEl.innerHTML = `<div style="margin-top:6px; font-size:11px; font-weight:800; color:#b45309; background:#fffbeb; border:1px solid #fde68a; padding:3px 8px; border-radius:6px; display:inline-block; box-shadow:0 2px 5px rgba(245,158,11,0.1);">⭐ ${scoreData.avg.toFixed(1)} İtibar</div>`;
+            } else {
+                scoreEl.innerHTML = `<div style="margin-top:6px; font-size:11px; font-weight:800; color:#64748b; background:#f1f5f9; border:1px solid #e2e8f0; padding:3px 8px; border-radius:6px; display:inline-block;">👨‍🍳 Yeni Şef</div>`;
+            }
         } else {
-            scoreEl.innerHTML = `<div style="margin-top:6px; font-size:11px; font-weight:800; color:#64748b; background:#f1f5f9; border:1px solid #e2e8f0; padding:3px 8px; border-radius:6px; display:inline-block;">👨‍🍳 Yeni Şef</div>`;
+            scoreEl.innerHTML = '';
         }
-    } else {
-        scoreEl.innerHTML = '';
     }
     
     if (currentUser.role === 'guest') {
-        roleBadge.textContent = 'Misafir Kullanıcı'; roleBadge.style.background = '#64748b'; 
-        adminElements.forEach(el => el.style.display = 'none'); userElements.forEach(el => el.style.display = 'none');
-        const upgradeCard = document.getElementById('guest-upgrade-card'); const mainProfileCard = document.getElementById('profile-main-card'); const passProfileCard = document.getElementById('profile-password-card');
-        if(upgradeCard) upgradeCard.style.display = 'block'; if(mainProfileCard) mainProfileCard.style.display = 'none'; if(passProfileCard) passProfileCard.style.display = 'none';
-    } else {
-        roleBadge.textContent = currentUser.customRole || (currentUser.role === 'admin' ? 'Baş Şef' : 'Kullanıcı');
-        if (currentUser.role === 'admin') { 
-            roleBadge.style.background = 'var(--amber)'; adminElements.forEach(el => el.style.display = ''); userElements.forEach(el => el.style.display = 'none');
-        } else { 
-            roleBadge.style.background = 'var(--primary)'; adminElements.forEach(el => el.style.display = 'none'); userElements.forEach(el => el.style.display = '');
+        if(roleBadge) {
+            roleBadge.textContent = 'Misafir Kullanıcı';
+            roleBadge.style.background = '#64748b'; 
         }
-        const upgradeCard = document.getElementById('guest-upgrade-card'); const mainProfileCard = document.getElementById('profile-main-card'); const passProfileCard = document.getElementById('profile-password-card');
-        if(upgradeCard) upgradeCard.style.display = 'none'; if(mainProfileCard) mainProfileCard.style.display = 'flex'; if(passProfileCard) passProfileCard.style.display = 'block';
+        adminElements.forEach(el => el.style.display = 'none'); 
+        userElements.forEach(el => el.style.display = 'none');
+        
+        const upgradeCard = document.getElementById('guest-upgrade-card');
+        const mainProfileCard = document.getElementById('profile-main-card'); 
+        const passProfileCard = document.getElementById('profile-password-card');
+        
+        if(upgradeCard) upgradeCard.style.display = 'block'; 
+        if(mainProfileCard) mainProfileCard.style.display = 'none'; 
+        if(passProfileCard) passProfileCard.style.display = 'none';
+    } else {
+        if(roleBadge) {
+            roleBadge.textContent = currentUser.customRole || (currentUser.role === 'admin' ? 'Baş Şef' : 'Kullanıcı');
+            if (currentUser.role === 'admin') { 
+                roleBadge.style.background = 'var(--amber)';
+                adminElements.forEach(el => el.style.display = ''); 
+                userElements.forEach(el => el.style.display = 'none');
+            } else { 
+                roleBadge.style.background = 'var(--primary)';
+                adminElements.forEach(el => el.style.display = 'none'); 
+                userElements.forEach(el => el.style.display = '');
+            }
+        }
+        
+        const upgradeCard = document.getElementById('guest-upgrade-card'); 
+        const mainProfileCard = document.getElementById('profile-main-card'); 
+        const passProfileCard = document.getElementById('profile-password-card');
+        if(upgradeCard) upgradeCard.style.display = 'none'; 
+        if(mainProfileCard) mainProfileCard.style.display = 'flex'; 
+        if(passProfileCard) passProfileCard.style.display = 'block';
     }
-    if (currentUser.avatar) document.getElementById('sb-profile-img').src = currentUser.avatar;
-    // --- SADECE SÜPER YÖNETİCİ BAKIM BUTONUNU GÖREBİLİR ---
+    
+    const sbProfileImg = document.getElementById('sb-profile-img');
+    if (currentUser.avatar && sbProfileImg) {
+        sbProfileImg.src = currentUser.avatar;
+    }
+    
     const maintBtn = document.getElementById('super-admin-maintenance-btn');
     if (maintBtn) {
-        // GÜVENLİK KİLİDİ: Kullanıcı varsa VE emaili tanımlıysa kontrol et
         if (currentUser && currentUser.email && currentUser.email.toLowerCase() === 'okulmengen@gmail.com') {
             maintBtn.style.display = 'block';
         } else {
             maintBtn.style.display = 'none';
         }
     }
-    }
+}
+    
 
 function updateBadges() {
     if(!currentUser || currentUser.role === 'guest') return;
@@ -1529,19 +1561,25 @@ function renderMyRecipes() { const b = document.getElementById('my-recipes-list'
 // ==========================================
 function loadProfile() { 
     if(!currentUser || currentUser.role === 'guest') return;
-    document.getElementById('input-name').value = currentUser.name || ''; document.getElementById('input-email').value = currentUser.email || ''; document.getElementById('input-bio').value = currentUser.bio || ''; 
-    const revAuthor = document.getElementById('rev-author'); if(revAuthor) revAuthor.value = currentUser.name;
-    if (currentUser.avatar) { document.getElementById('profile-current-avatar').src = currentUser.avatar; document.getElementById('sb-profile-img').src = currentUser.avatar; } 
-}
 
-function applyCustomAvatarFile() { 
-    if(currentUser.role === 'guest') return; const fileInput = document.getElementById('custom-avatar-file');
-    if (fileInput.files && fileInput.files[0]) { 
-        const file = fileInput.files[0]; if (file.size > 2 * 1024 * 1024) { showToast("Maksimum 2MB olmalıdır.", "warning"); return; } 
-        const reader = new FileReader();
-        reader.onload = function(e) { const base64Img = e.target.result; currentUser.avatar = base64Img; document.getElementById('profile-current-avatar').src = base64Img; document.getElementById('sb-profile-img').src = base64Img; saveUserToCloud(currentUser); saveSessionLocally(); showToast("Profil resmi güncellendi!", "success"); }; 
-        reader.readAsDataURL(file);
-    } else showToast("Lütfen cihazınızdan bir görsel seçin.", "error");
+    document.getElementById('input-name').value = currentUser.name || ''; 
+    document.getElementById('input-email').value = currentUser.email || ''; 
+    document.getElementById('input-bio').value = currentUser.bio || ''; 
+    
+    const revAuthor = document.getElementById('rev-author'); 
+    if(revAuthor) revAuthor.value = currentUser.name;
+    
+    // Eğer şefin kendi profil resmi varsa onu koy
+    if (currentUser.avatar) { 
+        document.getElementById('profile-current-avatar').src = currentUser.avatar; 
+        document.getElementById('sb-profile-img').src = currentUser.avatar; 
+    } 
+    // Eğer resmi yoksa, tezgahı temizle ve varsayılan resmi koy!
+    else {
+        const defaultAvatar = 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=150&q=80';
+        if(document.getElementById('profile-current-avatar')) document.getElementById('profile-current-avatar').src = defaultAvatar;
+        if(document.getElementById('sb-profile-img')) document.getElementById('sb-profile-img').src = defaultAvatar;
+    }
 }
 
 function saveProfile(e) { e.preventDefault(); if(currentUser.role === 'guest') return; currentUser.name = document.getElementById('input-name').value.trim(); currentUser.bio = document.getElementById('input-bio').value.trim(); document.getElementById('sb-profile-name').textContent = currentUser.name; saveUserToCloud(currentUser); saveSessionLocally(); showToast("Kişisel bilgiler güncellendi.", "success"); }
