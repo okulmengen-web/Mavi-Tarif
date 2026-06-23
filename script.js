@@ -10,7 +10,7 @@ var emailjsServiceId = 'service_vhwzf9p';
 var emailjsTemplateId = 'template_oz2e5kk';
 var emailjsPublicKey = 'AjU4d6eqgx7iitRmf';
 
-var geminiApiKey = 'AQ.Ab8RN6KRQ780nIKmYdMCDJPJsL18zFUsV7zM5VHfdZSZlAzy6w';
+var geminiApiKey = 'AQ.Ab8RN6ID4oZddYzwnn" + "8OqvAOLVwIS-vxlrW7iXYvoZEUbmcF4Q';
 
 const MASTER_ADMIN = 'okulmengen@gmail.com';
 const ADMIN_EMAILS = ['spotify201122@gmail.com', 'okulmengen@gmail.com'];
