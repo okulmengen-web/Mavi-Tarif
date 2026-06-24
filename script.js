@@ -531,7 +531,15 @@ function hideAuthErrors() { const loginBox = document.getElementById('login-erro
 
 function toggleAuthMode(mode) {
     hideAuthErrors(); document.getElementById('login-module').style.display = 'none'; document.getElementById('register-module').style.display = 'none'; document.getElementById('forgot-module').style.display = 'none';
-    if (mode === 'register') { document.getElementById('register-module').style.display = 'block'; } else if (mode === 'forgot') { document.getElementById('forgot-module').style.display = 'block'; document.getElementById('forgot-code-group').style.display = 'none'; document.getElementById('forgot-pass-group').style.display = 'none'; document.getElementById('btn-forgot-submit').style.display = 'none'; } else { document.getElementById('login-module').style.display = 'block'; }
+    if (mode === 'register') { document.getElementById('register-module').style.display = 'block'; } 
+    else if (mode === 'forgot') { 
+        document.getElementById('forgot-module').style.display = 'block'; 
+        document.getElementById('forgot-code-group').style.display = 'none'; 
+        document.getElementById('forgot-sec-q-group').style.display = 'none'; 
+        document.getElementById('forgot-sec-a-group').style.display = 'none'; 
+        document.getElementById('forgot-pass-group').style.display = 'none'; 
+        document.getElementById('btn-forgot-submit').style.display = 'none'; 
+    } else { document.getElementById('login-module').style.display = 'block'; }
 }
 
 let regCodeVal = null; let forgotCodeVal = null; let regTimeout = null; let forgotTimeout = null;
@@ -565,7 +573,12 @@ function sendRegistrationCode(type) {
             regCodeVal = generatedCode; clearTimeout(regTimeout);
             regTimeout = setTimeout(() => { regCodeVal = null; if(btn){ btn.innerText = "Tekrar Gönder"; btn.style.background = "var(--primary)"; } }, 180000); 
         } else if (type === 'forgot') {
-            forgotCodeVal = generatedCode; document.getElementById('forgot-code-group').style.display = 'block'; document.getElementById('forgot-pass-group').style.display = 'block'; document.getElementById('btn-forgot-submit').style.display = 'block';
+            forgotCodeVal = generatedCode; 
+            document.getElementById('forgot-code-group').style.display = 'block'; 
+            document.getElementById('forgot-sec-q-group').style.display = 'block'; 
+            document.getElementById('forgot-sec-a-group').style.display = 'block'; 
+            document.getElementById('forgot-pass-group').style.display = 'block'; 
+            document.getElementById('btn-forgot-submit').style.display = 'block';
             clearTimeout(forgotTimeout);
             forgotTimeout = setTimeout(() => { forgotCodeVal = null; if(btn){ btn.innerText = "Tekrar Gönder"; btn.style.background = "var(--primary)"; } }, 180000);
         }
@@ -591,12 +604,33 @@ function handleRegister(e) {
 
 function handleForgotPassword(e) {
     e.preventDefault();
-    const email = document.getElementById('forgot-email').value.trim().toLowerCase(); const code = document.getElementById('forgot-code').value.trim(); const newPass = document.getElementById('forgot-new-pass').value;
+    const email = document.getElementById('forgot-email').value.trim().toLowerCase(); 
+    const code = document.getElementById('forgot-code').value.trim(); 
+    const newPass = document.getElementById('forgot-new-pass').value;
+    
+    // YENİ: Formdan gelen soru ve cevabı çekiyoruz
+    const secQ = document.getElementById('forgot-security-question').value;
+    const secA = document.getElementById('forgot-security-answer').value.trim();
+
     if(code !== forgotCodeVal || !forgotCodeVal) { showToast("Sıfırlama kodu hatalı/süresi dolmuş!", "error"); return; }
+    
+    let foundUser = USERS.find(u => u.email.toLowerCase() === email);
+    if(!foundUser) { showToast("Sistemde böyle bir hesap bulunamadı!", "error"); return; }
+    
+    // 🚨 GÜVENLİK SORUSU KONTROLÜ (ÇELİK KAPI)
+    if(foundUser.securityQ !== secQ || foundUser.securityA !== secA) {
+        showToast("Güvenlik sorusu veya cevabı hatalı! Kod doğru olsa bile erişim reddedildi.", "error"); 
+        return;
+    }
+
     if(newPass.length < 6) { showToast("Şifre en az 6 karakter olmalı.", "warning"); return; }
 
-    let foundUser = USERS.find(u => u.email.toLowerCase() === email);
-    if(foundUser) { foundUser.password = newPass; saveUserToCloud(foundUser); forgotCodeVal = null; toggleAuthMode('login'); showToast("Şifreniz sıfırlandı!", "success"); }
+    // Tüm duvarlar aşıldıysa şifreyi değiştir
+    foundUser.password = newPass; 
+    saveUserToCloud(foundUser); 
+    forgotCodeVal = null; 
+    toggleAuthMode('login'); 
+    showToast("Güvenlik duvarı aşıldı! Şifreniz başarıyla sıfırlandı.", "success"); 
 }
 
 function handleLogin(e) {
@@ -1847,3 +1881,69 @@ window.checkMaintenanceStatus = async function() {
 // Supabase'i yormamak için süreyi 10 saniyeye çıkardık (Ücretsiz paketi korur)
 setInterval(checkMaintenanceStatus, 10000);
 setTimeout(checkMaintenanceStatus, 1000); // İlk açılışta hemen kontrol et
+// ==========================================
+// BUKALEMUN SAAT MOTORU (Mobil Uyumlu)
+// ==========================================
+function mutfakSaatiniGuncelle() {
+    const simdi = new Date();
+    
+    const saat = String(simdi.getHours()).padStart(2, '0');
+    const dakika = String(simdi.getMinutes()).padStart(2, '0');
+    const saniye = String(simdi.getSeconds()).padStart(2, '0');
+    
+    const tamTarih = simdi.toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+    const kisaTarih = simdi.toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' });
+    
+    const saatKutusu = document.getElementById('bukalemun-saat');
+    const saatYazisi = document.getElementById('ortak-saat');
+    const ayirici = document.getElementById('saat-ayirici');
+    const tarihYazisi = document.getElementById('ortak-tarih');
+
+    if (!saatKutusu) return;
+
+    saatYazisi.innerText = `${saat}:${dakika}:${saniye}`;
+
+    const girisEkrani = document.getElementById('auth-screen');
+    const sefIcerideMi = girisEkrani && (girisEkrani.style.display === 'none' || girisEkrani.classList.contains('hidden'));
+
+    if (!sefIcerideMi) {
+        // DIŞ KAPI (Büyük Saat - Mobilde de PC'de de Görünür)
+        saatKutusu.style.display = "flex"; 
+        tarihYazisi.innerText = tamTarih;
+        saatKutusu.style.bottom = "20px"; 
+        saatKutusu.style.top = "auto";    
+        saatKutusu.style.left = "20px";
+        saatKutusu.style.right = "auto"; 
+        saatKutusu.style.flexDirection = "column";
+        saatKutusu.style.background = "var(--bg-light, #f8fafc)";
+        saatKutusu.style.padding = "10px 18px";
+        saatYazisi.style.fontSize = "22px";
+        tarihYazisi.style.fontSize = "13px";
+        tarihYazisi.style.marginTop = "4px";
+        ayirici.style.display = "none"; 
+    } else {
+        // İÇERİSİ (Şef Giriş Yaptıktan Sonra)
+        if (window.innerWidth <= 768) {
+            // 📱 MOBİL EKRAN: Logoya çarpmasın diye saati tamamen gizle
+            saatKutusu.style.display = "none";
+        } else {
+            // 💻 BİLGİSAYAR EKRANI: Sağ üstte küçük şık saat
+            saatKutusu.style.display = "flex"; 
+            tarihYazisi.innerText = kisaTarih; 
+            saatKutusu.style.top = "20px";  
+            saatKutusu.style.bottom = "auto"; 
+            saatKutusu.style.right = "25px"; 
+            saatKutusu.style.left = "auto";  
+            saatKutusu.style.flexDirection = "row"; 
+            saatKutusu.style.background = "rgba(59, 130, 246, 0.05)";
+            saatKutusu.style.padding = "4px 12px";
+            saatYazisi.style.fontSize = "14px"; 
+            tarihYazisi.style.fontSize = "12px"; 
+            tarihYazisi.style.marginTop = "0px";
+            ayirici.style.display = "inline"; 
+        }
+    }
+}
+
+mutfakSaatiniGuncelle();
+setInterval(mutfakSaatiniGuncelle, 1000);

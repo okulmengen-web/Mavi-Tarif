@@ -140,70 +140,8 @@
         <span id="theme-text" style="font-weight: 800; font-family: system-ui, sans-serif; font-size: 14px; color: #64748b;">Gece Modu</span>
     </button>
    <script>
-function mutfakSaatiniGuncelle() {
-    const simdi = new Date();
+
     
-    const saat = String(simdi.getHours()).padStart(2, '0');
-    const dakika = String(simdi.getMinutes()).padStart(2, '0');
-    const saniye = String(simdi.getSeconds()).padStart(2, '0');
-    
-    const tamTarih = simdi.toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
-    const kisaTarih = simdi.toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' });
-    
-    const saatKutusu = document.getElementById('bukalemun-saat');
-    const saatYazisi = document.getElementById('ortak-saat');
-    const ayirici = document.getElementById('saat-ayirici');
-    const tarihYazisi = document.getElementById('ortak-tarih');
-
-    if (!saatKutusu) return;
-
-    // Saniyeleri tıkır tıkır işlet
-    saatYazisi.innerText = `${saat}:${dakika}:${saniye}`;
-
-    // Ekran kontrolü
-    const girisEkrani = document.getElementById('auth-screen');
-    const sefIcerideMi = girisEkrani && (girisEkrani.style.display === 'none' || girisEkrani.classList.contains('hidden'));
-
-    if (!sefIcerideMi) {
-        // 🚪 DIŞ KAPI (Tasarım zaten HTML'de var, sadece tarihi tam yaz)
-        tarihYazisi.innerText = tamTarih;
-        
-        // Eğer içeriden "Çıkış Yap" dediysek dev saate geri dönme ayarları:
-        saatKutusu.style.bottom = "20px"; 
-        saatKutusu.style.top = "auto";    
-        saatKutusu.style.left = "20px";
-        saatKutusu.style.right = "auto"; 
-        saatKutusu.style.flexDirection = "column";
-        saatKutusu.style.background = "var(--bg-light, #f8fafc)";
-        saatKutusu.style.padding = "10px 18px";
-        saatYazisi.style.fontSize = "22px";
-        tarihYazisi.style.fontSize = "13px";
-        tarihYazisi.style.marginTop = "4px";
-        ayirici.style.display = "none"; 
-        
-    } else {
-        // 🍽️ İÇERİSİ DURUMU (Küçülüp sağ üste uçma ayarları)
-        tarihYazisi.innerText = kisaTarih; 
-        
-        saatKutusu.style.top = "20px";  
-        saatKutusu.style.bottom = "auto"; 
-        saatKutusu.style.right = "25px"; 
-        saatKutusu.style.left = "auto";  
-        saatKutusu.style.flexDirection = "row"; 
-        saatKutusu.style.background = "rgba(59, 130, 246, 0.05)";
-        saatKutusu.style.padding = "4px 12px";
-        saatYazisi.style.fontSize = "14px"; 
-        tarihYazisi.style.fontSize = "12px"; 
-        tarihYazisi.style.marginTop = "0px";
-        ayirici.style.display = "inline"; 
-    }
-}
-
-// Zaman gecikmesini önlemek için doğrudan ilk fırlatmayı yap
-mutfakSaatiniGuncelle();
-setInterval(mutfakSaatiniGuncelle, 1000);
-</script>
-    <script>
         function applySavedTheme() {
             const savedTheme = localStorage.getItem('MaviTarif_Theme');
             const btn = document.getElementById('mavi-theme-btn');
@@ -328,7 +266,7 @@ setInterval(mutfakSaatiniGuncelle, 1000);
         <h2>Şifre Sıfırlama</h2>
         <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">Şifrenizi sıfırlamak için kayıtlı e-posta adresinize 6 haneli bir kod göndereceğiz.</p>
         
-        <form id="forgotForm" onsubmit="event.preventDefault(); handleForgotPassword(event);">
+       <form id="forgotForm" onsubmit="event.preventDefault(); handleForgotPassword(event);">
           <div class="form-group">
             <label>E-Posta Adresiniz</label>
             <div class="mobile-email-row">
@@ -343,6 +281,23 @@ setInterval(mutfakSaatiniGuncelle, 1000);
             <input type="text" id="forgot-code" placeholder="Gelen 6 Haneli Kod" maxlength="6">
           </div>
           
+          <!-- YENİ EKLENEN ÇELİK KAPI: Güvenlik Sorusu -->
+          <div class="form-group" id="forgot-sec-q-group" style="margin-top: 10px; display:none;">
+            <label>Kayıtlı Güvenlik Sorunuz</label>
+            <select id="forgot-security-question" required class="pro-select" style="width:100%;">
+              <option value="İlk evcil hayvanınızın adı nedir?">İlk evcil hayvanınızın adı nedir?</option>
+              <option value="En sevdiğiniz Baş Şef kimdir?">En sevdiğiniz Baş Şef kimdir?</option>
+              <option value="Çocukken büyüdüğünüz sokağın adı nedir?">Çocukken büyüdüğünüz sokağın adı nedir?</option>
+              <option value="İlk pişirdiğiniz profesyonel yemek hangisidir?">İlk pişirdiğiniz profesyonel yemek hangisidir?</option>
+              <option value="Annenizin kızlık soyadı nedir?">Annenizin kızlık soyadı nedir?</option>
+            </select>
+          </div>
+          <div class="form-group" id="forgot-sec-a-group" style="margin-top: 10px; display:none;">
+            <label>Güvenlik Sorusu Cevabı</label>
+            <input type="text" id="forgot-security-answer" placeholder="Büyük/küçük harf duyarlıdır">
+          </div>
+          <!-- BİTİŞ -->
+
           <div class="form-group" id="forgot-pass-group" style="margin-top: 10px; display:none;">
             <label>Yeni Şifre</label>
             <input type="password" id="forgot-new-pass" placeholder="En az 6 karakter">
