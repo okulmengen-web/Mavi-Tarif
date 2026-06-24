@@ -142,7 +142,6 @@ window.wipeTestData = async function() {
 let autoSyncInterval;
 async function syncCloudDataSilently() {
     if(!currentUser || !supabaseClient || currentUser.role === 'guest') return;
-    
     const [uData, rData, eData, dData, aData, sData, auData, rejData] = await Promise.all([
         safeFetch('users'), safeFetch('recipes'), safeFetch('pending_edits'), 
         safeFetch('direct_messages'), safeFetch('announcements'), 
@@ -152,26 +151,43 @@ async function syncCloudDataSilently() {
     
     if(uData.length > 0) {
         USERS = uData.map(mapUserFromDB);
-        const dbUser = USERS.find(u => u.email === currentUser.email);
+        // Küçük/büyük harf uyuşmazlığı olmasın diye toLowerCase ile aratıyoruz
+        const dbUser = USERS.find(u => u.email.toLowerCase() === currentUser.email.toLowerCase());
+        
         if(dbUser) {
-            if(dbUser.sessionToken === 'KICKED') { logOutForce("Güvenlik: Oturumunuz sonlandırıldı!"); return; } 
+            if(dbUser.sessionToken === 'KICKED') { 
+                logOutForce("Güvenlik: Oturumunuz sonlandırıldı!");
+                return; 
+            } 
             else if(dbUser.sessionToken !== sessionToken) {
                 await supabaseClient.from('users').update({ session_token: 'KICKED' }).eq('email', currentUser.email);
-                logOutForce("Güvenlik İhlali: Farklı cihaz tespiti!"); return;
+                logOutForce("Güvenlik İhlali: Farklı cihaz tespiti!"); 
+                return;
             } else {
-                const now = Date.now(); currentUser.lastActive = now;
+                const now = Date.now();
+                currentUser.lastActive = now;
                 supabaseClient.from('users').update({ last_active: now }).eq('email', currentUser.email).then();
             }
+        } else {
+            // 🚨 ANINDA ATMA KALKANI: Kullanıcı bulutta yoksa (Silindi veya Banlandıysa) saniyesinde şutla!
+            logOutForce("🛡️ Güvenlik: Hesabınız donduruldu veya sistemden silindi!");
+            return;
         }
     }
 
-    if(rData.length > 0) RECIPES = rData.map(mapRecipeFromDB); else if(rData.length === 0 && RECIPES.length > 0) RECIPES = [];
-    if(eData.length > 0) PENDING_EDITS = eData.map(mapEditFromDB); else if(eData.length === 0) PENDING_EDITS = [];
+    if(rData.length > 0) RECIPES = rData.map(mapRecipeFromDB);
+    else if(rData.length === 0 && RECIPES.length > 0) RECIPES = [];
+    if(eData.length > 0) PENDING_EDITS = eData.map(mapEditFromDB);
+    else if(eData.length === 0) PENDING_EDITS = [];
     if(dData.length > 0) DIRECT_MESSAGES = dData; else if(dData.length === 0) DIRECT_MESSAGES = [];
     if(aData.length > 0) ANNOUNCEMENTS = aData; else if(aData.length === 0) ANNOUNCEMENTS = [];
-    if(sData.length > 0) STOCK_ITEMS = sData; else if(sData.length === 0) STOCK_ITEMS = [];
+    if(sData.length > 0) STOCK_ITEMS = sData;
+    else if(sData.length === 0) STOCK_ITEMS = [];
     if(auData.length > 0) AUDIT_LOG = auData;
-    if(rejData.length > 0) { REJECTED_REQUESTS = rejData.map(r => ({ id: r.id, userEmail: r.user_email, title: r.title, type: r.type, reason: r.reason, date: r.date })); localStorage.setItem('mavitrif_rejected', JSON.stringify(REJECTED_REQUESTS)); }
+    if(rejData.length > 0) { 
+        REJECTED_REQUESTS = rejData.map(r => ({ id: r.id, userEmail: r.user_email, title: r.title, type: r.type, reason: r.reason, date: r.date }));
+        localStorage.setItem('mavitrif_rejected', JSON.stringify(REJECTED_REQUESTS)); 
+    }
     
     if(typeof updateBadges === 'function') updateBadges();
     
@@ -180,7 +196,10 @@ async function syncCloudDataSilently() {
         const pId = activePage.id;
         if(pId === 'page-dash' && typeof renderDash === 'function') renderDash();
         if(pId === 'page-recipes' && typeof filterRecipes === 'function') filterRecipes();
-        if(pId === 'page-approvals') { if(typeof renderPendingRecipes === 'function') renderPendingRecipes(); if(typeof renderPendingEdits === 'function') renderPendingEdits(); }
+        if(pId === 'page-approvals') { 
+            if(typeof renderPendingRecipes === 'function') renderPendingRecipes(); 
+            if(typeof renderPendingEdits === 'function') renderPendingEdits();
+        }
         if(pId === 'page-dms' && typeof renderUserDMs === 'function') renderUserDMs();
         if(pId === 'page-announcements' && typeof renderAdminAnnouncements === 'function') renderAdminAnnouncements();
         if(pId === 'page-audit' && typeof renderAuditLog === 'function') renderAuditLog();
@@ -1882,7 +1901,7 @@ window.checkMaintenanceStatus = async function() {
 setInterval(checkMaintenanceStatus, 10000);
 setTimeout(checkMaintenanceStatus, 1000); // İlk açılışta hemen kontrol et
 // ==========================================
-// BUKALEMUN SAAT MOTORU (Mobil Uyumlu)
+// BUKALEMUN SAAT MOTORU (Akıllı Mobil Uyumlu)
 // ==========================================
 function mutfakSaatiniGuncelle() {
     const simdi = new Date();
@@ -1907,20 +1926,30 @@ function mutfakSaatiniGuncelle() {
     const sefIcerideMi = girisEkrani && (girisEkrani.style.display === 'none' || girisEkrani.classList.contains('hidden'));
 
     if (!sefIcerideMi) {
-        // DIŞ KAPI (Büyük Saat - Mobilde de PC'de de Görünür)
-        saatKutusu.style.display = "flex"; 
-        tarihYazisi.innerText = tamTarih;
-        saatKutusu.style.bottom = "20px"; 
-        saatKutusu.style.top = "auto";    
-        saatKutusu.style.left = "20px";
-        saatKutusu.style.right = "auto"; 
-        saatKutusu.style.flexDirection = "column";
-        saatKutusu.style.background = "var(--bg-light, #f8fafc)";
-        saatKutusu.style.padding = "10px 18px";
-        saatYazisi.style.fontSize = "22px";
-        tarihYazisi.style.fontSize = "13px";
-        tarihYazisi.style.marginTop = "4px";
-        ayirici.style.display = "none"; 
+        // DIŞ KAPI KONTROLÜ
+        const loginModule = document.getElementById('login-module');
+        // Eğer Giriş modülü 'none' değilse (yani ekrandaysa) true olur
+        const isLoginActive = loginModule && loginModule.style.display !== 'none';
+        
+        // 🚨 AKILLI MOBİL KALKANI: Mobildeysek VE (Kayıt Ol/Şifremi Unuttum) açıksa saati gizle!
+        if (window.innerWidth <= 768 && !isLoginActive) {
+            saatKutusu.style.display = "none";
+        } else {
+            // Normal Dış Kapı Saati (Giriş Ekranında Veya Bilgisayarda)
+            saatKutusu.style.display = "flex"; 
+            tarihYazisi.innerText = tamTarih;
+            saatKutusu.style.bottom = "20px"; 
+            saatKutusu.style.top = "auto";    
+            saatKutusu.style.left = "20px";
+            saatKutusu.style.right = "auto"; 
+            saatKutusu.style.flexDirection = "column";
+            saatKutusu.style.background = "var(--bg-light, #f8fafc)";
+            saatKutusu.style.padding = "10px 18px";
+            saatYazisi.style.fontSize = "22px";
+            tarihYazisi.style.fontSize = "13px";
+            tarihYazisi.style.marginTop = "4px";
+            ayirici.style.display = "none"; 
+        }
     } else {
         // İÇERİSİ (Şef Giriş Yaptıktan Sonra)
         if (window.innerWidth <= 768) {
@@ -1944,6 +1973,5 @@ function mutfakSaatiniGuncelle() {
         }
     }
 }
-
 mutfakSaatiniGuncelle();
 setInterval(mutfakSaatiniGuncelle, 1000);
