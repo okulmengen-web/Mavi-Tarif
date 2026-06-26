@@ -29,9 +29,10 @@
 }
 
 body {
-  background-color: var(--bg-light);
-  color: var(--text-main);
-  -webkit-font-smoothing: antialiased;
+  background-image: url('arkaplan.jpg'); 
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
 }
 
 .app-container {
