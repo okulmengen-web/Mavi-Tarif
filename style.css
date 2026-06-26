@@ -28,12 +28,26 @@
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 
+/* Bir önceki adımda bulduğumuz o eksik ' (tırnak) işaretini eklemeyi unutmuyoruz! */
+/* 1. ADIM: Arka planı duvara ZORLA çakıyoruz (!important gücüyle) */
 body {
-  background-image: url('arkaplan.jpg'); 
-  background-size: cover;
-  background-position: center;
-  background-attachment: fixed;
+  background-image: url('arkaplan.jpeg') !important; 
+  background-size: cover !important;
+  background-position: center !important;
+  background-attachment: fixed !important;
+  background-color: transparent !important;
 }
+
+/* 2. ADIM: Resmi gizleyen o mavi perdeyi ŞEFFAF yapıyoruz! */
+#auth-screen, 
+.auth-wrapper, 
+html {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* Diğer MaviTarif tasarımların buradan aşağı devam edebilir */
+
 
 .app-container {
   display: flex;
