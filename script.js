@@ -10,7 +10,9 @@ var emailjsServiceId = 'service_vhwzf9p';
 var emailjsTemplateId = 'template_oz2e5kk';
 var emailjsPublicKey = 'AjU4d6eqgx7iitRmf';
 
-var geminiApiKey = "AQ.Ab8RN6KaGNu2gDbiqpX0jvLSrr_eq-23dWUvtmkYWnH5zrYsGw";
+
+// İsim tam olarak aşağıdaki motorun aradığı gibi "geminiApiKey" olmalı!
+const geminiApiKey = SISTEM_AYARLARI.GEMINI_API_KEY;
 
 const MASTER_ADMIN = 'okulmengen@gmail.com';
 const ADMIN_EMAILS = ['spotify201122@gmail.com', 'okulmengen@gmail.com'];

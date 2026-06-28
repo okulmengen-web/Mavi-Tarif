@@ -1,1 +1,0 @@
-const GIZLI_GEMINI_KEY = "AIzaSySeninSifrenBuraya";
