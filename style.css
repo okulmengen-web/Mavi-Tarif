@@ -687,3 +687,30 @@ body {
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+/* CSS DOSYANIN EN ALTINA BU KISMI EKLİYORSUN */
+/* Bu kodlar sadece ekran 768px'den (telefon boyutundan) küçükse çalışır */
+
+@media screen and (max-width: 768px) {
+  
+  /* 1. SAAT KRİZİNİ ÇÖZELİM: 
+     Saati küçültüp, köşeye tam yapıştırıyoruz ve z-index'ini düşürüyoruz ki menüleri ezmesin.
+     (HTML içine yazdığımız style'ı ezmek için !important gücünü kullanıyoruz) */
+  #bukalemun-saat {
+    bottom: 10px !important;
+    left: 10px !important;
+    padding: 5px 10px !important;
+    transform: scale(0.65) !important; /* Saati ufaltıp zarifleştirir */
+    transform-origin: bottom left !important;
+    z-index: 10 !important; /* Menülerin ve tıklanabilir alanların ALTINDA kalmasını sağlar */
+  }
+
+  /* 2. SAĞ BAR TIKLAMA SORUNU (Ön Çözüm): 
+     Eğer sağ barın class veya id adını biliyorsan, buraya onu yazmalısın. 
+     Aşağıdaki "sag-bar" yazan yeri kendi barının adıyla değiştir. */
+  .sag-bar, 
+  #kategori-bari {
+    z-index: 9999 !important; /* Görünmez camı kırıp barı EN ÖNE çıkarır */
+    position: relative !important;
+    pointer-events: auto !important; /* Tıklamaların kesinlikle algılanmasını sağlar */
+  }
+}
