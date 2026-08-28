@@ -727,7 +727,7 @@ function openUserDetailModal(email) {
     if (currentUser.email.toLowerCase() === MASTER_ADMIN.toLowerCase()) {
         document.getElementById('super-admin-zone').style.display = 'block';
         document.getElementById('ud-email').textContent = u.email;
-        document.getElementById('ud-pass').textContent = '••••••••'; document.getElementById('ud-pass').dataset.realpass = u.password;
+ document.getElementById('ud-pass').textContent = "Şifreler artık hash'li — sadece sıfırlanabilir.";
         document.getElementById('ud-security-q').textContent = u.securityQ || 'Belirtilmemiş';
         document.getElementById('ud-security-a').textContent = u.securityA || 'Belirtilmemiş';
     } else document.getElementById('super-admin-zone').style.display = 'none';
@@ -735,20 +735,22 @@ function openUserDetailModal(email) {
     document.getElementById('user-detail-modal').style.display = 'block';
 }
 
-function closeUserDetailModal() { document.getElementById('user-detail-modal').style.display = 'none'; }
-function toggleUdPass() { const passEl = document.getElementById('ud-pass'); passEl.textContent = passEl.textContent === '••••••••' ? passEl.dataset.realpass : '••••••••'; }
-function openSuperAdminPassModal() { document.getElementById('sa-pass-email').value = document.getElementById('ud-email').textContent; document.getElementById('sa-new-pass').value = ''; document.getElementById('super-admin-pass-modal').style.display = 'block'; }
-function closeSuperAdminPassModal() { document.getElementById('super-admin-pass-modal').style.display = 'none'; }
+document.getElementById('ud-email').textContent = u.email;
+document.getElementById('ud-pass').textContent = "Şifreler artık hash'li — sadece sıfırlanabilir.";
+document.getElementById('ud-security-q').textContent = 'Gizlilik nedeniyle artık görüntülenmiyor';
+document.getElementById('ud-security-a').textContent = '—';
 
-function submitSuperAdminPass() {
-    const email = document.getElementById('sa-pass-email').value; const newPass = document.getElementById('sa-new-pass').value;
+async function submitSuperAdminPass() {
+    const email = document.getElementById('sa-pass-email').value;
+    const newPass = document.getElementById('sa-new-pass').value;
     if(newPass.length < 6) { showToast("Şifre en az 6 haneli olmalıdır.", "warning"); return; }
-    let targetUser = USERS.find(u => u.email.toLowerCase() === email.toLowerCase());
-    if(targetUser) {
-        targetUser.password = newPass; saveUserToCloud(targetUser); document.getElementById('ud-pass').dataset.realpass = newPass;
-        logAdminAction(`"${targetUser.name}" kullanıcısının şifresini değiştirdi.`);
-        showToast("Kullanıcının şifresi başarıyla değiştirildi!", "success"); closeSuperAdminPassModal();
-    }
+
+    const { error } = await supabaseClient.rpc('admin_reset_user_password', { p_requester_email: currentUser.email, p_requester_token: sessionToken, p_target_email: email, p_new_password: newPass });
+    if (error) { showToast("Şifre değiştirilemedi (yetki gerekiyor).", "error"); return; }
+
+    logAdminAction(`"${email}" kullanıcısının şifresini değiştirdi.`);
+    showToast("Kullanıcının şifresi başarıyla değiştirildi!", "success");
+    closeSuperAdminPassModal();
 }
 // ==========================================
 // MAVİTARİF PRO - İLETİŞİM, DESTEK VE KİLER MOTORU (BÖLÜM 3/4)
@@ -1089,38 +1091,55 @@ function sendDirectMessage() {
     if(document.getElementById('page-dms').classList.contains('active')) renderUserDMs();
 }
 
-window.openEditRoleModal = function(email, currentRole) { document.getElementById('edit-role-email').value = email; document.getElementById('edit-role-input').value = currentRole; document.getElementById('edit-role-modal').style.display = 'block'; }
-window.closeEditRoleModal = function() { document.getElementById('edit-role-modal').style.display = 'none'; }
-window.submitEditRole = function(e) {
-    e.preventDefault(); const email = document.getElementById('edit-role-email').value.trim().toLowerCase(); const newRole = document.getElementById('edit-role-input').value.trim();
-    const user = USERS.find(u => u.email.toLowerCase() === email);
-    if(user) { user.customRole = newRole; saveUserToCloud(user); renderUserManagement(); logAdminAction(`"${user.name}" kullanıcısının unvanını "${newRole}" olarak güncelledi.`); showToast("Unvan güncellendi!", "success"); }
+window.submitEditRole = async function(e) {
+    e.preventDefault();
+    const email = document.getElementById('edit-role-email').value.trim().toLowerCase();
+    const newRole = document.getElementById('edit-role-input').value.trim();
+    const { error } = await supabaseClient.rpc('admin_update_user_role', { p_requester_email: currentUser.email, p_requester_token: sessionToken, p_target_email: email, p_new_custom_role: newRole });
+    if (!error) {
+        const user = USERS.find(u => u.email.toLowerCase() === email);
+        if(user) user.customRole = newRole;
+        renderUserManagement();
+        logAdminAction(`"${email}" kullanıcısının unvanını "${newRole}" olarak güncelledi.`);
+        showToast("Unvan güncellendi!", "success");
+    } else {
+        showToast("Unvan güncellenemedi.", "error");
+    }
     closeEditRoleModal();
 }
 
-function deleteUser(email) { 
+async function deleteUser(email) { 
     const targetEmail = email.toLowerCase();
-    if(confirm(`DİKKAT: ${targetEmail} adresli kullanıcıyı tamamen silmek istiyor musunuz?`)) { 
-        USERS = USERS.filter(u => u.email.toLowerCase() !== targetEmail); deleteUserFromCloud(targetEmail); renderUserManagement(); 
-        logAdminAction(`"${targetEmail}" adresli kullanıcıyı sistemden KALICI olarak sildi.`); showToast("Kullanıcı silindi.", "success");
-    } 
+    if(!confirm(`DİKKAT: ${targetEmail} adresli kullanıcıyı tamamen silmek istiyor musunuz?`)) return;
+    const { error } = await supabaseClient.rpc('admin_delete_user', { p_requester_email: currentUser.email, p_requester_token: sessionToken, p_target_email: targetEmail });
+    if (error) { showToast((error.message||'').includes('NOT_AUTHORIZED') ? "Bu işlem için yetkiniz yok." : "Kullanıcı silinemedi.", "error"); return; }
+    USERS = USERS.filter(u => u.email.toLowerCase() !== targetEmail);
+    renderUserManagement();
+    logAdminAction(`"${targetEmail}" adresli kullanıcıyı sistemden KALICI olarak sildi.`);
+    showToast("Kullanıcı silindi.", "success");
 }
 
-function banUser(email) { 
+async function banUser(email) { 
     const targetEmail = email.toLowerCase();
-    if(confirm(`${targetEmail} adresli kullanıcının erişimini dondurmak istediğinize emin misiniz?`)) { 
-        USERS = USERS.filter(u => u.email.toLowerCase() !== targetEmail); deleteUserFromCloud(targetEmail); 
-        if(!BLACKLIST.includes(targetEmail)) { BLACKLIST.push(targetEmail); saveBlacklistToCloud(targetEmail); } 
-        renderUserManagement(); logAdminAction(`"${targetEmail}" adresli kullanıcının erişimini dondurdu (KARA LİSTE).`); showToast("Kullanıcı kara listeye alındı.", "error");
-    } 
+    if(!confirm(`${targetEmail} adresli kullanıcının erişimini dondurmak istediğinize emin misiniz?`)) return;
+    const { error } = await supabaseClient.rpc('admin_ban_user', { p_requester_email: currentUser.email, p_requester_token: sessionToken, p_target_email: targetEmail });
+    if (error) { showToast((error.message||'').includes('NOT_AUTHORIZED') ? "Bu işlem için yetkiniz yok." : "İşlem başarısız.", "error"); return; }
+    USERS = USERS.filter(u => u.email.toLowerCase() !== targetEmail);
+    if(!BLACKLIST.includes(targetEmail)) BLACKLIST.push(targetEmail);
+    renderUserManagement();
+    logAdminAction(`"${targetEmail}" adresli kullanıcının erişimini dondurdu (KARA LİSTE).`);
+    showToast("Kullanıcı kara listeye alındı.", "error");
 }
 
-function unbanUser(email) { 
+async function unbanUser(email) { 
     const targetEmail = email.toLowerCase();
-    if(confirm(`${targetEmail} adresli kullanıcının yasağını kaldırmak istiyor musunuz?`)) { 
-        BLACKLIST = BLACKLIST.filter(e => e !== targetEmail); deleteBlacklistFromCloud(targetEmail); 
-        renderUserManagement(); logAdminAction(`"${targetEmail}" adresli kullanıcının yasağını kaldırdı (Affetti).`); showToast("Yasak kaldırıldı.", "success");
-    } 
+    if(!confirm(`${targetEmail} adresli kullanıcının yasağını kaldırmak istiyor musunuz?`)) return;
+    const { error } = await supabaseClient.rpc('admin_unban_user', { p_requester_email: currentUser.email, p_requester_token: sessionToken, p_target_email: targetEmail });
+    if (error) { showToast("İşlem başarısız.", "error"); return; }
+    BLACKLIST = BLACKLIST.filter(e => e !== targetEmail);
+    renderUserManagement();
+    logAdminAction(`"${targetEmail}" adresli kullanıcının yasağını kaldırdı (Affetti).`);
+    showToast("Yasak kaldırıldı.", "success");
 }
 
 function handleFridgeSearchInput(e) { 
