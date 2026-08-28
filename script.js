@@ -140,31 +140,25 @@ window.wipeTestData = async function() {
     } else { showToast("Sadece sistem yöneticileri sunucu temizliği yapabilir.", "error"); }
 }
 
-let autoSyncInterval;
 async function syncCloudDataSilently() {
     if(!currentUser || !supabaseClient || currentUser.role === 'guest') return;
-    
+
+    const { data: sessionCheck } = await supabaseClient.rpc('check_my_session', { p_email: currentUser.email, p_token: sessionToken });
+    if (sessionCheck && !sessionCheck.valid) {
+        logOutForce(sessionCheck.kicked ? "Güvenlik İhlali: Farklı cihaz tespiti!" : "Güvenlik: Oturumunuz sonlandırıldı!");
+        return;
+    }
+    currentUser.lastActive = Date.now();
+
     const [uData, rData, eData, dData, aData, sData, auData, rejData] = await Promise.all([
-        safeFetch('users'), safeFetch('recipes'), safeFetch('pending_edits'), 
-        safeFetch('direct_messages'), safeFetch('announcements'), 
+        supabaseClient.rpc('get_public_users').then(r => r.data || []),
+        safeFetch('recipes'), safeFetch('pending_edits'),
+        safeFetch('direct_messages'), safeFetch('announcements'),
         safeFetch('stock'), safeFetch('audit_logs', q => q.select('*').order('id', { ascending: false }).limit(100)),
         safeFetch('rejected_requests')
     ]);
-    
-    if(uData.length > 0) {
-        USERS = uData.map(mapUserFromDB);
-        const dbUser = USERS.find(u => u.email === currentUser.email);
-        if(dbUser) {
-            if(dbUser.sessionToken === 'KICKED') { logOutForce("Güvenlik: Oturumunuz sonlandırıldı!"); return; } 
-            else if(dbUser.sessionToken !== sessionToken) {
-                await supabaseClient.from('users').update({ session_token: 'KICKED' }).eq('email', currentUser.email);
-                logOutForce("Güvenlik İhlali: Farklı cihaz tespiti!"); return;
-            } else {
-                const now = Date.now(); currentUser.lastActive = now;
-                supabaseClient.from('users').update({ last_active: now }).eq('email', currentUser.email).then();
-            }
-        }
-    }
+
+    if(uData.length > 0) USERS = uData;
 
     if(rData.length > 0) RECIPES = rData.map(mapRecipeFromDB); else if(rData.length === 0 && RECIPES.length > 0) RECIPES = [];
     if(eData.length > 0) PENDING_EDITS = eData.map(mapEditFromDB); else if(eData.length === 0) PENDING_EDITS = [];
@@ -241,36 +235,14 @@ async function startMaviTarif() {
     showToast("Bulut senkronizasyonu başlatılıyor... ☁️", "info");
     startAutoSync();
 
-    const [uData, bData, rData, sData, eData, auData, dmData, annData, rejData] = await Promise.all([
-        safeFetch('users'), safeFetch('blacklist'), safeFetch('recipes'), safeFetch('stock'),
-        safeFetch('pending_edits'), safeFetch('audit_logs', q => q.select('*').order('id', { ascending: false }).limit(100)),
-        safeFetch('direct_messages'), safeFetch('announcements'), safeFetch('rejected_requests')
-    ]);
+ const [uData, bData, rData, sData, eData, auData, dmData, annData, rejData] = await Promise.all([
+    supabaseClient.rpc('get_public_users').then(r => r.data || []),
+    safeFetch('blacklist'), safeFetch('recipes'), safeFetch('stock'),
+    safeFetch('pending_edits'), safeFetch('audit_logs', q => q.select('*').order('id', { ascending: false }).limit(100)),
+    safeFetch('direct_messages'), safeFetch('announcements'), safeFetch('rejected_requests')
+]);
 
-    if(uData.length > 0) USERS = uData.map(mapUserFromDB); 
-    if(bData.length > 0) BLACKLIST = bData.map(x => x.email); 
-    if(rData.length > 0) RECIPES = rData.map(mapRecipeFromDB);
-    if(sData.length > 0) STOCK_ITEMS = sData; 
-    if(eData.length > 0) PENDING_EDITS = eData.map(mapEditFromDB); 
-    if(auData.length > 0) AUDIT_LOG = auData;
-    if(dmData.length > 0) DIRECT_MESSAGES = dmData;
-    if(annData.length > 0) ANNOUNCEMENTS = annData;
-    if(rejData.length > 0) {
-        REJECTED_REQUESTS = rejData.map(r => ({ id: r.id, userEmail: r.user_email, title: r.title, type: r.type, reason: r.reason, date: r.date }));
-        localStorage.setItem('mavitrif_rejected', JSON.stringify(REJECTED_REQUESTS));
-    }
-
-    ADMIN_EMAILS.forEach(email => {
-        if (!USERS.find(user => user.email.toLowerCase() === email.toLowerCase())) { 
-            const adminUser = { 
-                email: email, password: ADMIN_TEMP_PASS, 
-                name: email === MASTER_ADMIN ? 'Okul Mengen (Süper Yönetici)' : 'Toprak Bostancı', 
-                role: 'admin', customRole: 'Baş Şef', bio: 'Mutfakta kriz yok, planlama var! 👨‍🍳', avatar: null,
-                securityQ: null, securityA: null, lastActive: null, sessionToken: null
-            }; 
-            USERS.push(adminUser); saveUserToCloud(adminUser); 
-        }
-    });
+if(uData.length > 0) USERS = uData; // artık mapUserFromDB gerekmiyor, alanlar zaten hazır
 
     const savedSessionStr = localStorage.getItem('mavitarif_currentUser');
     const savedToken = localStorage.getItem('mavitarif_sessionToken');
@@ -558,78 +530,94 @@ function handleRegister(e) {
     showToast("Kayıt Başarılı! Giriş yapabilirsiniz.", "success");
 }
 
-function handleForgotPassword(e) {
+async function handleForgotPassword(e) {
     e.preventDefault();
-    const email = document.getElementById('forgot-email').value.trim().toLowerCase(); const code = document.getElementById('forgot-code').value.trim(); const newPass = document.getElementById('forgot-new-pass').value;
+    const email = document.getElementById('forgot-email').value.trim().toLowerCase();
+    const code = document.getElementById('forgot-code').value.trim();
+    const newPass = document.getElementById('forgot-new-pass').value;
     if(code !== forgotCodeVal || !forgotCodeVal) { showToast("Sıfırlama kodu hatalı/süresi dolmuş!", "error"); return; }
     if(newPass.length < 6) { showToast("Şifre en az 6 karakter olmalı.", "warning"); return; }
 
-    let foundUser = USERS.find(u => u.email.toLowerCase() === email);
-    if(foundUser) { foundUser.password = newPass; saveUserToCloud(foundUser); forgotCodeVal = null; toggleAuthMode('login'); showToast("Şifreniz sıfırlandı!", "success"); }
+    const { error } = await supabaseClient.rpc('reset_password', { p_email: email, p_new_password: newPass });
+    if (error) { showToast("Şifre sıfırlanamadı, e-postayı kontrol edin.", "error"); return; }
+
+    forgotCodeVal = null; toggleAuthMode('login'); showToast("Şifreniz sıfırlandı!", "success");
 }
 
-function handleLogin(e) {
+async function handleRegister(e) {
     e.preventDefault(); hideAuthErrors();
-    const email = document.getElementById('login-email').value.trim().toLowerCase(); const pass = document.getElementById('login-pass').value;
-    if(BLACKLIST.includes(email)) { showAuthError('login-error-box', 'Hesabınız kalıcı olarak yasaklanmıştır!'); return; }
-    
-    let foundUser = USERS.find(u => u.email.toLowerCase() === email);
-    if (!foundUser) { showAuthError('login-error-box', 'Hesap bulunamadı!'); return; }
-    if (foundUser.password !== pass) { showAuthError('login-error-box', 'Hatalı şifre.'); return; }
+    const name = document.getElementById('reg-name').value.trim();
+    const email = document.getElementById('reg-email').value.trim().toLowerCase();
+    const code = document.getElementById('reg-code').value.trim();
+    const pass1 = document.getElementById('reg-pass').value;
+    const pass2 = document.getElementById('reg-pass2').value;
+    const secQ = document.getElementById('reg-security-question').value;
+    const secA = document.getElementById('reg-security-answer').value.trim();
+    if(pass1 !== pass2) { showAuthError('register-error-box', 'Şifreler eşleşmiyor!'); return; }
+    if(code !== regCodeVal || !regCodeVal) { showAuthError('register-error-box', 'Hatalı veya süresi dolmuş kod!'); return; }
 
-    sessionToken = "TOK_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5);
-    foundUser.sessionToken = sessionToken; foundUser.lastActive = Date.now();
-    
-    currentUser = foundUser; 
-    saveSessionLocally(); 
-    localStorage.setItem('mavitarif_loginTime', Date.now().toString()); // ZAMANLAYICIYI BURADA BAŞLATIYORUZ
-    
+    const { error } = await supabaseClient.rpc('register_user', { p_email: email, p_password: pass1, p_name: name, p_security_q: secQ, p_security_a: secA });
+    if (error) {
+        const m = error.message || '';
+        const msg = m.includes('EMAIL_TAKEN') ? 'Bu e-posta zaten kayıtlı!' : m.includes('PASSWORD_TOO_SHORT') ? 'Şifre en az 6 karakter olmalı.' : 'Kayıt sırasında hata oluştu.';
+        showAuthError('register-error-box', msg); return;
+    }
+
+    regCodeVal = null; toggleAuthMode('login'); document.getElementById('login-email').value = email;
+    showToast("Kayıt Başarılı! Giriş yapabilirsiniz.", "success");
+}
+
+async function handleLogin(e) {
+    e.preventDefault(); hideAuthErrors();
+    const email = document.getElementById('login-email').value.trim().toLowerCase();
+    const pass = document.getElementById('login-pass').value;
+    if(BLACKLIST.includes(email)) { showAuthError('login-error-box', 'Hesabınız kalıcı olarak yasaklanmıştır!'); return; }
+    if (!supabaseClient) { showAuthError('login-error-box', 'Bağlantı hatası, sayfayı yenileyin.'); return; }
+
+    const { data, error } = await supabaseClient.rpc('login_user', { p_email: email, p_password: pass });
+    if (error) {
+        const m = error.message || '';
+        const msg = m.includes('ACCOUNT_NOT_FOUND') ? 'Hesap bulunamadı!' : m.includes('BLACKLISTED') ? 'Hesabınız yasaklanmış!' : 'Hatalı şifre.';
+        showAuthError('login-error-box', msg); return;
+    }
+
+    sessionToken = data.sessionToken;
+    currentUser = data;
+    saveSessionLocally();
+    localStorage.setItem('mavitarif_loginTime', Date.now().toString());
+
     const roleName = currentUser.customRole || (currentUser.role === 'admin' ? 'Baş Şef' : 'Kullanıcı');
     finalizeLogin(`${currentUser.name} (${roleName}) olarak giriş yapıldı.`);
 }
 
-function handleGuestLogin() {
-    hideAuthErrors();
-    currentUser = { email: 'misafir_' + Date.now() + '@mavitarif.local', name: 'Misafir Kullanıcı', role: 'guest', customRole: 'Ziyaretçi', avatar: null, bio: 'Sadece tariflere göz atıyorum.' };
-    finalizeLogin(`Misafir modunda giriş yapıldı. Sadece okuma yetkiniz var.`);
-}
-
-window.upgradeGuestAccount = function(e) {
+window.upgradeGuestAccount = async function(e) {
     e.preventDefault();
-    const email = document.getElementById('upgrade-email').value.trim().toLowerCase(); const pass = document.getElementById('upgrade-pass').value; const code = document.getElementById('upgrade-code').value.trim();
-    const secQ = document.getElementById('upgrade-security-question').value; const secA = document.getElementById('upgrade-security-answer').value.trim();
+    const email = document.getElementById('upgrade-email').value.trim().toLowerCase();
+    const pass = document.getElementById('upgrade-pass').value;
+    const code = document.getElementById('upgrade-code').value.trim();
+    const secQ = document.getElementById('upgrade-security-question').value;
+    const secA = document.getElementById('upgrade-security-answer').value.trim();
     if(code !== regCodeVal || !regCodeVal) { showToast("Hatalı veya süresi dolmuş doğrulama kodu!", "error"); return; }
     if(pass.length < 6) { showToast("Şifreniz en az 6 karakter olmalıdır.", "warning"); return; }
-    if(USERS.find(u => u.email.toLowerCase() === email)) { showToast("Bu e-posta zaten sistemde kayıtlı!", "error"); return; }
-    if(BLACKLIST.includes(email)) { showToast("Bu e-posta yasaklanmıştır!", "error"); return; }
 
-    sessionToken = "TOK_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5);
-    currentUser.email = email; currentUser.password = pass; currentUser.name = email.split('@')[0]; currentUser.role = 'user'; currentUser.customRole = 'Kullanıcı'; currentUser.securityQ = secQ; currentUser.securityA = secA; currentUser.sessionToken = sessionToken; currentUser.lastActive = Date.now();
-    USERS.push(currentUser); saveUserToCloud(currentUser); saveSessionLocally(); regCodeVal = null; 
-    showToast("Tebrikler! Hesabınız başarıyla kalıcı üyeliğe yükseltildi.", "success"); applyAuthUI(); goPage('dash', document.getElementById('nav-dash'));
+    const { error: regErr } = await supabaseClient.rpc('register_user', { p_email: email, p_password: pass, p_name: email.split('@')[0], p_security_q: secQ, p_security_a: secA });
+    if (regErr) { showToast((regErr.message||'').includes('EMAIL_TAKEN') ? "Bu e-posta zaten sistemde kayıtlı!" : "Yükseltme başarısız.", "error"); return; }
+
+    const { data, error: loginErr } = await supabaseClient.rpc('login_user', { p_email: email, p_password: pass });
+    if (loginErr) { showToast("Hesap oluşturuldu ama otomatik giriş başarısız, lütfen giriş yapın.", "warning"); return; }
+
+    sessionToken = data.sessionToken; currentUser = data;
+    saveSessionLocally(); regCodeVal = null;
+    showToast("Tebrikler! Hesabınız başarıyla kalıcı üyeliğe yükseltildi.", "success");
+    applyAuthUI(); goPage('dash', document.getElementById('nav-dash'));
 }
 
-async function finalizeLogin(msg) {
-    showToast(msg, "success");
-    document.getElementById('auth-screen').style.display = 'none'; document.getElementById('main-app-container').style.display = 'flex'; 
-    
-    const aiBox = document.getElementById('aiMessages');
-    if(aiBox) aiBox.innerHTML = '<div class="msg ai"><div class="msg-bubble">Şefim selam! Reçeteler ve mutfak durumu hafızamda. Bana komut ver!</div></div>';
-
-    applyAuthUI();
-    if(currentUser && currentUser.role !== 'guest') {
-        const notebookData = await safeFetch('notebook', q => q.select('*').eq('user_email', currentUser.email));
-        if(notebookData.length > 0) NOTEBOOK_IDS = notebookData.map(n => n.recipe_id);
-        if(window.supabaseClient) await supabaseClient.from('users').update({ session_token: sessionToken, last_active: Date.now() }).eq('email', currentUser.email);
-        await logAdminAction("Sisteme giriş yaptı.");
-    }
-    await cleanupOldData(); initApp();
-}
 
 function logOut() {
     if(currentUser && currentUser.role !== 'guest') {
         logAdminAction("Sistemden güvenli çıkış yaptı.");
-        if(window.supabaseClient) supabaseClient.from('users').update({ session_token: null, last_active: 0 }).eq('email', currentUser.email).then();
+        // eskisi: if(window.supabaseClient) supabaseClient.from('users').update({ session_token: null, last_active: 0 }).eq('email', currentUser.email).then();
+if(window.supabaseClient) supabaseClient.rpc('logout_user', { p_email: currentUser.email, p_token: sessionToken }).then();
     }
     currentUser = null; sessionToken = null; NOTEBOOK_IDS = []; 
     
@@ -646,15 +634,20 @@ function logOut() {
 
 let userLimit = 10; let blacklistLimit = 10;
 
-function handleAddAdmin(e) {
+async function handleAddAdmin(e) {
     e.preventDefault(); if(currentUser.role !== 'admin') return;
-    const name = document.getElementById('admin-add-name').value.trim(); const email = document.getElementById('admin-add-email').value.trim().toLowerCase(); const pass = document.getElementById('admin-add-pass').value;
-    if(USERS.find(u => u.email.toLowerCase() === email)) { showToast("Bu e-posta zaten sistemde kayıtlı!", "error"); return; } 
-    if(BLACKLIST.includes(email)) { showToast("Bu e-posta adresi kara listede! Önce kara listeden çıkarın.", "warning"); return; }
-    
-    const newAdmin = { name: name, email: email, password: pass, role: 'admin', customRole: 'Baş Şef', bio: 'Mutfakta kriz yok, planlama var! 👨‍🍳', avatar: null, securityQ: null, securityA: null, lastActive: null, sessionToken: null }; 
-    USERS.push(newAdmin); saveUserToCloud(newAdmin); renderUserManagement(); document.getElementById('addAdminForm').reset();
-    logAdminAction(`"${name}" (${email}) adlı kişiyi sisteme yönetici olarak ekledi.`); showToast(`Sisteme başarıyla yeni bir yetkili şef eklendi!`, "success");
+    const name = document.getElementById('admin-add-name').value.trim();
+    const email = document.getElementById('admin-add-email').value.trim().toLowerCase();
+    const pass = document.getElementById('admin-add-pass').value;
+
+    const { error } = await supabaseClient.rpc('add_admin_user', { p_requester_email: currentUser.email, p_requester_token: sessionToken, p_name: name, p_email: email, p_password: pass });
+    if (error) {
+        showToast((error.message||'').includes('EMAIL_TAKEN') ? "Bu e-posta zaten kayıtlı!" : "Yetkili eklenemedi.", "error");
+        return;
+    }
+    document.getElementById('addAdminForm').reset();
+    logAdminAction(`"${name}" (${email}) adlı kişiyi sisteme yönetici olarak ekledi.`);
+    showToast(`Sisteme başarıyla yeni bir yetkili şef eklendi!`, "success");
 }
 
 function renderUserManagement() {
@@ -1546,7 +1539,19 @@ function applyCustomAvatarFile() {
 }
 
 function saveProfile(e) { e.preventDefault(); if(currentUser.role === 'guest') return; currentUser.name = document.getElementById('input-name').value.trim(); currentUser.bio = document.getElementById('input-bio').value.trim(); document.getElementById('sb-profile-name').textContent = currentUser.name; saveUserToCloud(currentUser); saveSessionLocally(); showToast("Kişisel bilgiler güncellendi.", "success"); }
-function changePassword(e) { e.preventDefault(); if(currentUser.role === 'guest') return; const oldPass = document.getElementById('profile-old-pass').value; const newPass = document.getElementById('profile-new-pass').value; const newPass2 = document.getElementById('profile-new-pass2').value; if (oldPass !== currentUser.password) { showToast("Mevcut şifrenizi yanlış girdiniz!", "error"); return; } if (newPass !== newPass2) { showToast("Yeni şifre ve tekrarı eşleşmiyor!", "error"); return; } if (newPass.length < 6) { showToast("Yeni şifreniz en az 6 karakter olmalıdır.", "warning"); return; } currentUser.password = newPass; saveUserToCloud(currentUser); saveSessionLocally(); document.getElementById('passwordChangeForm').reset(); showToast("Güvenlik şifreniz başarıyla değiştirildi!", "success"); }
+async function handleForgotPassword(e) {
+    e.preventDefault();
+    const email = document.getElementById('forgot-email').value.trim().toLowerCase();
+    const code = document.getElementById('forgot-code').value.trim();
+    const newPass = document.getElementById('forgot-new-pass').value;
+    if(code !== forgotCodeVal || !forgotCodeVal) { showToast("Sıfırlama kodu hatalı/süresi dolmuş!", "error"); return; }
+    if(newPass.length < 6) { showToast("Şifre en az 6 karakter olmalı.", "warning"); return; }
+
+    const { error } = await supabaseClient.rpc('reset_password', { p_email: email, p_new_password: newPass });
+    if (error) { showToast("Şifre sıfırlanamadı, e-postayı kontrol edin.", "error"); return; }
+
+    forgotCodeVal = null; toggleAuthMode('login'); showToast("Şifreniz sıfırlandı!", "success");
+}
 function toggleInputType(id, btn) { const inp = document.getElementById(id); if(inp.type === 'password') { inp.type = 'text'; btn.textContent = '🔒'; } else { inp.type = 'password'; btn.textContent = '👁'; } }
 function toggleAccordion(contentId) { const content = document.getElementById(contentId); const icon = document.getElementById(contentId.replace('content', 'icon')); if (content.style.display === 'none' || content.style.display === '') { content.style.display = 'block'; if(icon) icon.textContent = '🔼'; } else { content.style.display = 'none'; if(icon) icon.textContent = '🔽'; } }
 function toggleSidebar() { const sidebar = document.getElementById('main-sidebar'); const overlay = document.getElementById('mobile-overlay'); if (sidebar.classList.contains('open')) { sidebar.classList.remove('open'); overlay.style.display = 'none'; } else { sidebar.classList.add('open'); overlay.style.display = 'block'; } }
