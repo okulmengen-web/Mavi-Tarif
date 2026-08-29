@@ -43,6 +43,7 @@ let portion = 4; let activeCategories = ['all']; let selectedFridgeTags = [];
 let currentDmTab = 'support'; 
 let dmLimit = 15;
 let sessionToken = null; 
+let autoSyncInterval = null;
 let editingSupportId = null; 
 const BAD_WORDS = ["kötü", "berbat", "iğrenç", "rezil", "aptal", "salak", "küfür", "leş"];
 
