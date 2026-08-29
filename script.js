@@ -569,6 +569,11 @@ async function handleRegister(e) {
 }
 
 async function handleLogin(e) {
+    function handleGuestLogin() {
+    hideAuthErrors();
+    currentUser = { email: 'misafir_' + Date.now() + '@mavitarif.local', name: 'Misafir Kullanıcı', role: 'guest', customRole: 'Ziyaretçi', avatar: null, bio: 'Sadece tariflere göz atıyorum.' };
+    finalizeLogin(`Misafir modunda giriş yapıldı. Sadece okuma yetkiniz var.`);
+}
     e.preventDefault(); hideAuthErrors();
     const email = document.getElementById('login-email').value.trim().toLowerCase();
     const pass = document.getElementById('login-pass').value;
