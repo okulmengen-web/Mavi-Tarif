@@ -1836,3 +1836,18 @@ window.checkMaintenanceStatus = async function() {
 // Supabase'i yormamak için süreyi 10 saniyeye çıkardık (Ücretsiz paketi korur)
 setInterval(checkMaintenanceStatus, 10000);
 setTimeout(checkMaintenanceStatus, 1000); // İlk açılışta hemen kontrol et
+async function finalizeLogin(msg) {
+    showToast(msg, "success");
+    document.getElementById('auth-screen').style.display = 'none'; document.getElementById('main-app-container').style.display = 'flex'; 
+    
+    const aiBox = document.getElementById('aiMessages');
+    if(aiBox) aiBox.innerHTML = '<div class="msg ai"><div class="msg-bubble">Şefim selam! Reçeteler ve mutfak durumu hafızamda. Bana komut ver!</div></div>';
+
+    applyAuthUI();
+    if(currentUser && currentUser.role !== 'guest') {
+        const notebookData = await safeFetch('notebook', q => q.select('*').eq('user_email', currentUser.email));
+        if(notebookData.length > 0) NOTEBOOK_IDS = notebookData.map(n => n.recipe_id);
+        await logAdminAction("Sisteme giriş yaptı.");
+    }
+    await cleanupOldData(); initApp();
+}
