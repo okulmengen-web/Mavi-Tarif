@@ -727,18 +727,13 @@ function openUserDetailModal(email) {
     if (currentUser.email.toLowerCase() === MASTER_ADMIN.toLowerCase()) {
         document.getElementById('super-admin-zone').style.display = 'block';
         document.getElementById('ud-email').textContent = u.email;
- document.getElementById('ud-pass').textContent = "Şifreler artık hash'li — sadece sıfırlanabilir.";
+        document.getElementById('ud-pass').textContent = "Şifreler artık hash'li — sadece sıfırlanabilir.";
         document.getElementById('ud-security-q').textContent = u.securityQ || 'Belirtilmemiş';
         document.getElementById('ud-security-a').textContent = u.securityA || 'Belirtilmemiş';
     } else document.getElementById('super-admin-zone').style.display = 'none';
     
     document.getElementById('user-detail-modal').style.display = 'block';
 }
-
-document.getElementById('ud-email').textContent = u.email;
-document.getElementById('ud-pass').textContent = "Şifreler artık hash'li — sadece sıfırlanabilir.";
-document.getElementById('ud-security-q').textContent = 'Gizlilik nedeniyle artık görüntülenmiyor';
-document.getElementById('ud-security-a').textContent = '—';
 
 async function submitSuperAdminPass() {
     const email = document.getElementById('sa-pass-email').value;
