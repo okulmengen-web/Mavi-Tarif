@@ -112,8 +112,8 @@ async function deleteRecipeFromCloud(id) {
 }
 function saveUserToCloud(u) { if(supabaseClient) supabaseClient.from('users').upsert(mapUserToDB(u), {onConflict: 'email'}).then(); }
 function deleteUserFromCloud(email) { if(supabaseClient) supabaseClient.from('users').delete().eq('email', email).then(); }
-function saveStockToCloud(s) { if(supabaseClient) supabaseClient.from('stock').upsert(s).then(); }
-function deleteStockFromCloud(name) { if(supabaseClient) supabaseClient.from('stock').delete().eq('name', name).then(); }
+function saveStockToCloud(s) { if(supabaseClient && currentUser) supabaseClient.rpc('admin_save_stock', { p_requester_email: currentUser.email, p_requester_token: sessionToken, p_name: s.name, p_qty: s.qty, p_min: s.min }).then(); }
+function deleteStockFromCloud(name) { if(supabaseClient && currentUser) supabaseClient.rpc('admin_delete_stock', { p_requester_email: currentUser.email, p_requester_token: sessionToken, p_name: name }).then(); }
 function saveBlacklistToCloud(email) { if(supabaseClient) supabaseClient.from('blacklist').upsert({email}).then(); }
 function deleteBlacklistFromCloud(email) { if(supabaseClient) supabaseClient.from('blacklist').delete().eq('email', email).then(); }
 function saveEditToCloud(e) {
