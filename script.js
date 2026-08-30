@@ -97,18 +97,35 @@ function mapEditFromDB(e) { let parsedDraft = e.draft; if(typeof parsedDraft ===
 function mapUserToDB(u) { return { email: u.email, password: u.password, name: u.name, role: u.role, bio: u.bio, avatar: u.avatar, custom_role: u.customRole, security_q: u.securityQ, security_a: u.securityA, last_active: u.lastActive, session_token: u.sessionToken }; }
 function mapUserFromDB(u) { return { email: u.email, password: u.password, name: u.name, role: u.role, bio: u.bio, avatar: u.avatar, customRole: u.custom_role, securityQ: u.security_q, securityA: u.security_a, lastActive: u.last_active, sessionToken: u.session_token }; }
 
-function saveRecipeToCloud(r) { if(supabaseClient) supabaseClient.from('recipes').upsert(mapRecipeToDB(r)).then(); }
-async function deleteRecipeFromCloud(id) { if(supabaseClient) await supabaseClient.from('recipes').delete().eq('id', id); }
+async function saveRecipeToCloud(r) {
+    if(!supabaseClient || !currentUser || currentUser.role !== 'admin') return;
+    await supabaseClient.rpc('admin_save_recipe', { p_requester_email: currentUser.email, p_requester_token: sessionToken, p_recipe: mapRecipeToDB(r) });
+}
+async function submitRecipeToCloud(r) {
+    if(!supabaseClient || !currentUser || currentUser.role === 'guest') return;
+    await supabaseClient.rpc('submit_recipe', { p_requester_email: currentUser.email, p_requester_token: sessionToken, p_recipe: mapRecipeToDB(r) });
+}
+async function deleteRecipeFromCloud(id) {
+    if(!supabaseClient || !currentUser) return;
+    if (currentUser.role === 'admin') await supabaseClient.rpc('admin_delete_recipe', { p_requester_email: currentUser.email, p_requester_token: sessionToken, p_id: id });
+    else await supabaseClient.rpc('withdraw_own_recipe', { p_requester_email: currentUser.email, p_requester_token: sessionToken, p_id: id });
+}
 function saveUserToCloud(u) { if(supabaseClient) supabaseClient.from('users').upsert(mapUserToDB(u), {onConflict: 'email'}).then(); }
 function deleteUserFromCloud(email) { if(supabaseClient) supabaseClient.from('users').delete().eq('email', email).then(); }
 function saveStockToCloud(s) { if(supabaseClient) supabaseClient.from('stock').upsert(s).then(); }
 function deleteStockFromCloud(name) { if(supabaseClient) supabaseClient.from('stock').delete().eq('name', name).then(); }
 function saveBlacklistToCloud(email) { if(supabaseClient) supabaseClient.from('blacklist').upsert({email}).then(); }
 function deleteBlacklistFromCloud(email) { if(supabaseClient) supabaseClient.from('blacklist').delete().eq('email', email).then(); }
-function saveEditToCloud(e) { if(supabaseClient) supabaseClient.from('pending_edits').upsert(mapEditToDB(e)).then(); }
-async function deleteEditFromCloud(id) { if(supabaseClient) await supabaseClient.from('pending_edits').delete().eq('edit_id', id); }
-function addNotebookToCloud(email, rid) { if(supabaseClient && currentUser && currentUser.role !== 'guest') supabaseClient.from('notebook').upsert({user_email: email, recipe_id: rid}).then(); }
-function removeNotebookFromCloud(email, rid) { if(supabaseClient && currentUser && currentUser.role !== 'guest') supabaseClient.from('notebook').delete().match({user_email: email, recipe_id: rid}).then(); }
+function saveEditToCloud(e) {
+    if(supabaseClient && currentUser) supabaseClient.rpc('submit_recipe_edit', { p_requester_email: currentUser.email, p_requester_token: sessionToken, p_edit_id: e.editId, p_original_recipe_id: e.originalRecipeId, p_recipe_name: e.recipeName, p_draft: e.draft }).then();
+}
+async function deleteEditFromCloud(editId) {
+    if(!supabaseClient || !currentUser) return;
+    if (currentUser.role === 'admin') await supabaseClient.rpc('admin_delete_pending_edit', { p_requester_email: currentUser.email, p_requester_token: sessionToken, p_edit_id: editId });
+    else await supabaseClient.rpc('withdraw_own_edit', { p_requester_email: currentUser.email, p_requester_token: sessionToken, p_edit_id: editId });
+}
+function addNotebookToCloud(email, rid) { if(supabaseClient && currentUser && currentUser.role !== 'guest') supabaseClient.rpc('add_to_notebook', { p_requester_email: currentUser.email, p_requester_token: sessionToken, p_recipe_id: rid }).then(); }
+function removeNotebookFromCloud(email, rid) { if(supabaseClient && currentUser && currentUser.role !== 'guest') supabaseClient.rpc('remove_from_notebook', { p_requester_email: currentUser.email, p_requester_token: sessionToken, p_recipe_id: rid }).then(); }
 async function deleteAnnouncementFromCloud(id) { if(supabaseClient) await supabaseClient.from('announcements').delete().eq('id', id); }
 
 function saveRejectedToCloud(req) { 
@@ -1353,7 +1370,9 @@ function submitReview(e) {
     const author = document.getElementById('rev-author').value; const rating = parseInt(document.getElementById('rev-rating').value); const text = document.getElementById('rev-text').value;
     if(BAD_WORDS.some(word => text.toLowerCase().includes(word))) { showToast("Yorumunuz engellendi!", "error"); return; } 
     if(!currentRecipe.reviews) currentRecipe.reviews = [];
-    currentRecipe.reviews.push({ author, rating, text }); saveRecipeToCloud(currentRecipe); 
+    // eskisi: currentRecipe.reviews.push({ author, rating, text }); saveRecipeToCloud(currentRecipe);
+currentRecipe.reviews.push({ author, rating, text });
+if(supabaseClient) supabaseClient.rpc('add_review', { p_requester_email: currentUser.email, p_requester_token: sessionToken, p_recipe_id: currentRecipe.id, p_author: author, p_rating: rating, p_text: text }).then();
     document.getElementById('reviewForm').reset(); renderRecipeDetailHTML(); renderDash(); filterRecipes(); showToast("Yorum eklendi!", "success"); 
 }
 
@@ -1435,7 +1454,10 @@ function submitNewRecipe(e) {
     const parsedSteps = document.getElementById('add-steps').value.split('\n').filter(l => l.trim() !== '').map(l => ({ text: l }));
     const newR = { id: Date.now(), name, img, contentImgs, cat: selectedCats, diff, time, basePortion, tick: "grey", status: currentUser.role === 'admin' ? "active" : "pending", allergens: selectedAllergens, isVegan: isVegan, isVejetaryen: isVejetaryen, salePrice: isNaN(salePriceVal) ? null : salePriceVal, macros: { cal: parseInt(document.getElementById('add-cal').value)||300, pro: parseInt(document.getElementById('add-pro').value)||15, fat: parseInt(document.getElementById('add-fat').value)||10, carbs: parseInt(document.getElementById('add-carbs').value)||20, author_name: currentUser.name, author_email: currentUser.email }, ingredients: parsedIngredients.length > 0 ? parsedIngredients : [{name:"Harç", amt:"1 Adet", unitCost:100}], mep: parsedMep.length > 0 ? parsedMep : ["Malzemeleri tartın."], steps: parsedSteps.length > 0 ? parsedSteps : [{text: "Pişirip servis edin."}], reviews: [] };
     
-    RECIPES.push(newR); saveRecipeToCloud(newR); closeAddRecipeModal(); document.getElementById('addRecipeForm').reset();
+    // eskisi: RECIPES.push(newR); saveRecipeToCloud(newR); closeAddRecipeModal();
+RECIPES.push(newR);
+if (currentUser.role === 'admin') saveRecipeToCloud(newR); else submitRecipeToCloud(newR);
+closeAddRecipeModal(); document.getElementById('addRecipeForm').reset();
     if (currentUser.role === 'admin') { logAdminAction(`"${name}" adlı yepyeni bir reçeteyi kütüphaneye ekledi.`); showToast("Reçete buluta eklendi!", "success"); renderDash(); filterRecipes();
     } else { showToast("Reçete onaya gönderildi!", "success"); renderMyRequests(); updateBadges(); }
 }
@@ -1505,20 +1527,17 @@ function closeRejectModal() { document.getElementById('reject-reason-modal').sty
 
 async function submitRejectReason(e) {
     e.preventDefault(); const id = parseInt(document.getElementById('reject-item-id').value); const type = document.getElementById('reject-item-type').value; const reason = document.getElementById('reject-reason-text').value;
-    if (type === 'recipe') {
-        const r = RECIPES.find(x => x.id === id);
-        if(r) { 
-            const newRej = { id: Date.now(), userEmail: r.macros?.author_email, title: r.name, type: 'Tarif Ekleme Reddedildi', reason: reason, date: new Date().toLocaleString('tr-TR') };
-            REJECTED_REQUESTS.push(newRej); saveRejectedToCloud(newRej); RECIPES = RECIPES.filter(x => x.id !== id); await deleteRecipeFromCloud(id); logAdminAction(`"${r.name}" tarif talebini reddetti.`); 
-        }
-    } else {
-        const edit = PENDING_EDITS.find(x => x.editId === id);
-        if(edit) { 
-            const newRej = { id: Date.now(), userEmail: edit.draft?.macros?.author_email, title: edit.recipeName, type: 'Tarif Düzenleme Reddedildi', reason: reason, date: new Date().toLocaleString('tr-TR') };
-            REJECTED_REQUESTS.push(newRej); saveRejectedToCloud(newRej); PENDING_EDITS = PENDING_EDITS.filter(x => x.editId !== id); await deleteEditFromCloud(id); logAdminAction(`"${edit.recipeName}" revizyonunu reddetti.`); 
-        }
-    }
-    localStorage.setItem('mavitrif_rejected', JSON.stringify(REJECTED_REQUESTS)); closeRejectModal(); closePreviewModal(); renderPendingRecipes(); renderPendingEdits(); updateBadges(); showToast("Reddetme işlemi tamamlandı.", "success");
+    let userEmail = null; let title = null;
+    if (type === 'recipe') { const r = RECIPES.find(x => x.id === id); if(r) { userEmail = r.macros?.author_email; title = r.name; } }
+    else { const edit = PENDING_EDITS.find(x => x.editId === id); if(edit) { userEmail = edit.draft?.macros?.author_email; title = edit.recipeName; } }
+
+    const { error } = await supabaseClient.rpc('admin_reject_request', { p_requester_email: currentUser.email, p_requester_token: sessionToken, p_type: type, p_id: id, p_user_email: userEmail, p_title: title, p_reason: reason });
+    if (!error) {
+        if (type === 'recipe') { RECIPES = RECIPES.filter(x => x.id !== id); logAdminAction(`"${title}" tarif talebini reddetti.`); }
+        else { PENDING_EDITS = PENDING_EDITS.filter(x => x.editId !== id); logAdminAction(`"${title}" revizyonunu reddetti.`); }
+        showToast("Reddetme işlemi tamamlandı.", "success");
+    } else { showToast("Reddetme işlemi başarısız.", "error"); }
+    closeRejectModal(); closePreviewModal(); renderPendingRecipes(); renderPendingEdits(); updateBadges();
     if(document.getElementById('page-my-requests').classList.contains('active')) renderMyRequests();
 }
 
@@ -1555,24 +1574,22 @@ function applyCustomAvatarFile() {
     if (fileInput.files && fileInput.files[0]) { 
         const file = fileInput.files[0]; if (file.size > 2 * 1024 * 1024) { showToast("Maksimum 2MB olmalıdır.", "warning"); return; } 
         const reader = new FileReader();
-        reader.onload = function(e) { const base64Img = e.target.result; currentUser.avatar = base64Img; document.getElementById('profile-current-avatar').src = base64Img; document.getElementById('sb-profile-img').src = base64Img; saveUserToCloud(currentUser); saveSessionLocally(); showToast("Profil resmi güncellendi!", "success"); }; 
+       reader.onload = async function(e) { 
+    const base64Img = e.target.result; currentUser.avatar = base64Img; 
+    document.getElementById('profile-current-avatar').src = base64Img; document.getElementById('sb-profile-img').src = base64Img; 
+    if(supabaseClient) await supabaseClient.rpc('update_profile', { p_requester_email: currentUser.email, p_requester_token: sessionToken, p_name: currentUser.name, p_bio: currentUser.bio, p_avatar: base64Img }); 
+    saveSessionLocally(); showToast("Profil resmi güncellendi!", "success"); 
+};
         reader.readAsDataURL(file);
     } else showToast("Lütfen cihazınızdan bir görsel seçin.", "error");
 }
 
-function saveProfile(e) { e.preventDefault(); if(currentUser.role === 'guest') return; currentUser.name = document.getElementById('input-name').value.trim(); currentUser.bio = document.getElementById('input-bio').value.trim(); document.getElementById('sb-profile-name').textContent = currentUser.name; saveUserToCloud(currentUser); saveSessionLocally(); showToast("Kişisel bilgiler güncellendi.", "success"); }
-async function handleForgotPassword(e) {
-    e.preventDefault();
-    const email = document.getElementById('forgot-email').value.trim().toLowerCase();
-    const code = document.getElementById('forgot-code').value.trim();
-    const newPass = document.getElementById('forgot-new-pass').value;
-    if(code !== forgotCodeVal || !forgotCodeVal) { showToast("Sıfırlama kodu hatalı/süresi dolmuş!", "error"); return; }
-    if(newPass.length < 6) { showToast("Şifre en az 6 karakter olmalı.", "warning"); return; }
-
-    const { error } = await supabaseClient.rpc('reset_password', { p_email: email, p_new_password: newPass });
-    if (error) { showToast("Şifre sıfırlanamadı, e-postayı kontrol edin.", "error"); return; }
-
-    forgotCodeVal = null; toggleAuthMode('login'); showToast("Şifreniz sıfırlandı!", "success");
+async function saveProfile(e) { 
+    e.preventDefault(); if(currentUser.role === 'guest') return; 
+    currentUser.name = document.getElementById('input-name').value.trim(); currentUser.bio = document.getElementById('input-bio').value.trim(); 
+    document.getElementById('sb-profile-name').textContent = currentUser.name; 
+    if(supabaseClient) await supabaseClient.rpc('update_profile', { p_requester_email: currentUser.email, p_requester_token: sessionToken, p_name: currentUser.name, p_bio: currentUser.bio, p_avatar: currentUser.avatar }); 
+    saveSessionLocally(); showToast("Kişisel bilgiler güncellendi.", "success"); 
 }
 function toggleInputType(id, btn) { const inp = document.getElementById(id); if(inp.type === 'password') { inp.type = 'text'; btn.textContent = '🔒'; } else { inp.type = 'password'; btn.textContent = '👁'; } }
 function toggleAccordion(contentId) { const content = document.getElementById(contentId); const icon = document.getElementById(contentId.replace('content', 'icon')); if (content.style.display === 'none' || content.style.display === '') { content.style.display = 'block'; if(icon) icon.textContent = '🔼'; } else { content.style.display = 'none'; if(icon) icon.textContent = '🔽'; } }
