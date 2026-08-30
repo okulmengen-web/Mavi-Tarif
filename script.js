@@ -1867,5 +1867,6 @@ async function finalizeLogin(msg) {
         if(notebookData.length > 0) NOTEBOOK_IDS = notebookData.map(n => n.recipe_id);
         await logAdminAction("Sisteme giriş yaptı.");
     }
-    await cleanupOldData(); initApp();
+       await cleanupOldData(); initApp();
+    syncCloudDataSilently(); // Girişten hemen sonra bekletmeden bir kez tazele
 }
