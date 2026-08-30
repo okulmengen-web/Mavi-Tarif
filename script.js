@@ -210,11 +210,12 @@ async function cleanupOldData() {
 
 async function logAdminAction(actionDetail) {
     if(!currentUser || currentUser.role === 'guest') return;
-    const logEntry = { id: Date.now(), log_date: new Date().toLocaleString('tr-TR'), user_name: currentUser.name, user_email: currentUser.email, action: actionDetail };
+    const logDate = new Date().toLocaleString('tr-TR');
+    const logEntry = { id: Date.now(), log_date: logDate, user_name: currentUser.name, user_email: currentUser.email, action: actionDetail };
     AUDIT_LOG.unshift(logEntry); if(AUDIT_LOG.length > 100) AUDIT_LOG.pop(); 
     const auditPage = document.getElementById('page-audit');
     if(currentUser.role === 'admin' && auditPage && auditPage.classList.contains('active')) { if(typeof renderAuditLog === 'function') renderAuditLog(); }
-    if(supabaseClient) await supabaseClient.from('audit_logs').insert([logEntry]);
+    if(supabaseClient) await supabaseClient.rpc('log_action', { p_email: currentUser.email, p_token: sessionToken, p_action: actionDetail, p_log_date: logDate });
 }
 
 function renderAuditLog() {
