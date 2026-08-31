@@ -162,10 +162,11 @@ async function syncCloudDataSilently() {
     if(!currentUser || !supabaseClient || currentUser.role === 'guest') return;
 
     const { data: sessionCheck } = await supabaseClient.rpc('check_my_session', { p_email: currentUser.email, p_token: sessionToken });
-    if (sessionCheck && !sessionCheck.valid) {
+       if (sessionCheck && !sessionCheck.valid) {
         logOutForce(sessionCheck.kicked ? "Güvenlik İhlali: Farklı cihaz tespiti!" : "Güvenlik: Oturumunuz sonlandırıldı!");
         return;
     }
+    if (!currentUser) return;
     currentUser.lastActive = Date.now();
 
     const [uData, rData, eData, dData, aData, sData, auData, rejData] = await Promise.all([
