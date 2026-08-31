@@ -173,8 +173,10 @@ async function syncCloudDataSilently() {
     supabaseClient.rpc('get_public_users').then(r => r.data || []),
     supabaseClient.rpc('get_visible_recipes', { p_email: currentUser.email, p_token: sessionToken }).then(r => r.data || []),
     supabaseClient.rpc('get_visible_edits', { p_email: currentUser.email, p_token: sessionToken }).then(r => r.data || []),
-    safeFetch('direct_messages'), safeFetch('announcements'),
-    safeFetch('stock'), safeFetch('audit_logs', q => q.select('*').order('id', { ascending: false }).limit(100)),
+    supabaseClient.rpc('get_my_messages', { p_email: currentUser.email, p_token: sessionToken }).then(r => r.data || []),
+    safeFetch('announcements'),
+    safeFetch('stock'),
+    (currentUser.role === 'admin' ? supabaseClient.rpc('get_audit_log', { p_email: currentUser.email, p_token: sessionToken }).then(r => r.data || []) : Promise.resolve([])),
     supabaseClient.rpc('get_my_rejected', { p_email: currentUser.email, p_token: sessionToken }).then(r => r.data || [])
 ]);
     if(uData.length > 0) USERS = uData;
@@ -261,8 +263,8 @@ async function startMaviTarif() {
     supabaseClient.rpc('get_visible_recipes', { p_email: null, p_token: null }).then(r => r.data || []),
     safeFetch('stock'),
     supabaseClient.rpc('get_visible_edits', { p_email: null, p_token: null }).then(r => r.data || []),
-    safeFetch('audit_logs', q => q.select('*').order('id', { ascending: false }).limit(100)),
-    safeFetch('direct_messages'), safeFetch('announcements'), 
+    Promise.resolve([]),
+    Promise.resolve([]), safeFetch('announcements'), 
     Promise.resolve([])
 ]);
 
@@ -947,31 +949,24 @@ window.renderUserDMs = function() {
     }
 }
 
-window.replySupportMessage = function(id) {
+window.replySupportMessage = async function(id) {
     const dm = DIRECT_MESSAGES.find(d => d.id === id);
     if(!dm) return;
     const replyText = prompt(`"${dm.subject}" talebine yanıtınız:`);
     if(!replyText) return;
 
     dm.isRead = true; dm.is_read = true;
-    if(window.supabaseClient) supabaseClient.from('direct_messages').update({ is_read: true }).eq('id', id).then();
+    await supabaseClient.rpc('mark_message_read', { p_email: currentUser.email, p_token: sessionToken, p_id: id });
 
     const cleanSubject = dm.subject.replace("🚨 DESTEK TALEBİ: ", "").replace("TALEBİM: ", "");
-
     const newDM = {
-        id: "DM_" + Date.now(),
-        from_name: currentUser.name + " (Yönetim)",
-        from_email: MASTER_ADMIN,
-        to_email: (dm.from_email || dm.fromEmail || "").toLowerCase(),
-        subject: "YÖNETİM YANITI: " + cleanSubject,
-        text: replyText,
-        date: new Date().toLocaleString('tr-TR'),
-        is_read: false,
-        is_support: true // YÖNETİCİ YANITI ARTIK DESTEK ZİNCİRİNE GİRECEK!
+        id: "DM_" + Date.now(), from_name: currentUser.name + " (Yönetim)", from_email: MASTER_ADMIN,
+        to_email: (dm.from_email || dm.fromEmail || "").toLowerCase(), subject: "YÖNETİM YANITI: " + cleanSubject,
+        text: replyText, date: new Date().toLocaleString('tr-TR'), is_read: false, is_support: true
     };
+    const { error } = await supabaseClient.rpc('send_message', { p_email: currentUser.email, p_token: sessionToken, p_id: newDM.id, p_to_email: newDM.to_email, p_subject: newDM.subject, p_text: newDM.text, p_is_support: true });
+    if (error) { showToast("Yanıt gönderilemedi.", "error"); return; }
     DIRECT_MESSAGES.push(newDM);
-    if(window.supabaseClient) supabaseClient.from('direct_messages').insert([newDM]).then();
-    
     logAdminAction(`"${dm.from_email}" adresinin destek talebine yanıt verdi.`);
     showToast("Yanıt gönderildi ve destek talebi kapatıldı.", "success");
     renderUserDMs(); updateBadges();
@@ -979,8 +974,9 @@ window.replySupportMessage = function(id) {
 
 window.withdrawMessage = async function(id) {
     if(confirm("Bu mesajı kalıcı olarak geri çekmek (silmek) istediğinize emin misiniz?")) {
+        const { error } = await supabaseClient.rpc('withdraw_message', { p_email: currentUser.email, p_token: sessionToken, p_id: id });
+        if (error) { showToast("Mesaj silinemedi.", "error"); return; }
         DIRECT_MESSAGES = DIRECT_MESSAGES.filter(dm => dm.id !== id);
-        if(window.supabaseClient) await supabaseClient.from('direct_messages').delete().eq('id', id);
         if(currentUser.role === 'admin') logAdminAction("Gönderdiği bir mesajı geri çekti.");
         showToast("Mesaj başarıyla geri çekildi.", "info");
         renderUserDMs(); updateBadges();
@@ -997,13 +993,14 @@ window.editSupportMessage = function(id) {
     }
 }
 
-window.editSentMessage = function(id) {
+window.editSentMessage = async function(id) {
     const dm = DIRECT_MESSAGES.find(d => d.id === id);
     if(dm && !dm.isRead) {
         const newText = prompt("Gönderilen mesajınızı düzenleyin:", dm.text);
         if(newText !== null && newText.trim() !== "") {
+            const { error } = await supabaseClient.rpc('update_message', { p_email: currentUser.email, p_token: sessionToken, p_id: id, p_subject: dm.subject, p_text: newText.trim(), p_reset_unread: false });
+            if (error) { showToast("Mesaj güncellenemedi.", "error"); return; }
             dm.text = newText.trim();
-            if(window.supabaseClient) supabaseClient.from('direct_messages').update({ text: dm.text }).eq('id', id).then();
             if(currentUser.role === 'admin') logAdminAction(`Gönderdiği bir mesajı düzenledi.`);
             showToast("Mesajınız güncellendi!", "success");
             renderUserDMs();
@@ -1011,7 +1008,7 @@ window.editSentMessage = function(id) {
     }
 }
 
-window.submitSupportMessage = function() {
+window.submitSupportMessage = async function() {
     if(!checkSpamProtection('send_support')) return; 
     if(currentUser.role === 'guest') { showToast("Misafirler destek talebi gönderemez.", "warning"); return; }
     if(currentUser.role === 'admin') { showToast("Yöneticiler destek talebi gönderemez.", "warning"); return; }
@@ -1024,28 +1021,18 @@ window.submitSupportMessage = function() {
     if(btn) btn.disabled = true;
 
     if (editingSupportId) {
-        const dm = DIRECT_MESSAGES.find(d => d.id === editingSupportId);
-        if(dm) {
-            dm.subject = subject; dm.text = text; dm.isRead = false; dm.is_read = false;
-            if(window.supabaseClient) supabaseClient.from('direct_messages').update({ subject: subject, text: text, is_read: false }).eq('id', editingSupportId).then();
+        const { error } = await supabaseClient.rpc('update_message', { p_email: currentUser.email, p_token: sessionToken, p_id: editingSupportId, p_subject: subject, p_text: text, p_reset_unread: true });
+        if (!error) {
+            const dm = DIRECT_MESSAGES.find(d => d.id === editingSupportId);
+            if(dm) { dm.subject = subject; dm.text = text; dm.isRead = false; dm.is_read = false; }
             showToast("Destek talebiniz başarıyla güncellendi!", "success");
-        }
+        } else { showToast("Talep güncellenemedi.", "error"); }
         editingSupportId = null;
     } else {
-        const newDM = { 
-            id: "DM_" + Date.now(), 
-            from_name: currentUser.name, 
-            from_email: currentUser.email.toLowerCase(),
-            to_email: MASTER_ADMIN.toLowerCase(), 
-            subject: subject, 
-            text: text, 
-            date: new Date().toLocaleString('tr-TR'), 
-            is_read: false,
-            is_support: true
-        };
-        DIRECT_MESSAGES.push(newDM);
-        if(window.supabaseClient) supabaseClient.from('direct_messages').insert([newDM]).then();
-        showToast("Destek talebiniz başarıyla yönetime iletildi!", "success");
+        const newDM = { id: "DM_" + Date.now(), from_name: currentUser.name, from_email: currentUser.email.toLowerCase(), to_email: MASTER_ADMIN.toLowerCase(), subject: subject, text: text, date: new Date().toLocaleString('tr-TR'), is_read: false, is_support: true };
+        const { error } = await supabaseClient.rpc('send_message', { p_email: currentUser.email, p_token: sessionToken, p_id: newDM.id, p_to_email: newDM.to_email, p_subject: newDM.subject, p_text: newDM.text, p_is_support: true });
+        if (!error) { DIRECT_MESSAGES.push(newDM); showToast("Destek talebiniz başarıyla yönetime iletildi!", "success"); }
+        else { showToast("Talep gönderilemedi.", "error"); }
     }
 
     document.getElementById('supportForm').reset();
@@ -1065,16 +1052,17 @@ window.closeSupportModal = function() {
     document.getElementById('support-modal').style.display = 'none'; 
 }
 
-window.markDmAsRead = function(id) {
+window.markDmAsRead = async function(id) {
     const dm = DIRECT_MESSAGES.find(d => d.id === id);
     if(dm) {
+        const { error } = await supabaseClient.rpc('mark_message_read', { p_email: currentUser.email, p_token: sessionToken, p_id: id });
+        if (error) return;
         dm.isRead = true; dm.is_read = true;
-        if(window.supabaseClient) supabaseClient.from('direct_messages').update({ is_read: true }).eq('id', id).then();
         renderUserDMs(); updateBadges();
     }
 }
 
-function sendDirectMessage() {
+async function sendDirectMessage() {
     if(!checkSpamProtection('send_dm')) return; 
     if(currentUser.role === 'guest') { showToast("Misafirler özel mesaj gönderemez.", "warning"); return; }
 
@@ -1090,23 +1078,13 @@ function sendDirectMessage() {
         if(btn) btn.disabled = false;
         return;
     }
-    
     if(!toEmail || !subject || !text) { if(btn) btn.disabled = false; return; }
 
-    const newDM = { 
-        id: "DM_" + Date.now(), 
-        from_name: currentUser.name, 
-        from_email: currentUser.email.toLowerCase(),
-        to_email: toEmail, 
-        subject: subject, 
-        text: text, 
-        date: new Date().toLocaleString('tr-TR'), 
-        is_read: false,
-        is_support: false
-    };
+    const newDM = { id: "DM_" + Date.now(), from_name: currentUser.name, from_email: currentUser.email.toLowerCase(), to_email: toEmail, subject: subject, text: text, date: new Date().toLocaleString('tr-TR'), is_read: false, is_support: false };
+    const { error } = await supabaseClient.rpc('send_message', { p_email: currentUser.email, p_token: sessionToken, p_id: newDM.id, p_to_email: newDM.to_email, p_subject: newDM.subject, p_text: newDM.text, p_is_support: false });
+    if (error) { showToast("Mesaj gönderilemedi.", "error"); if(btn) btn.disabled = false; return; }
+
     DIRECT_MESSAGES.push(newDM);
-    
-    if(window.supabaseClient) supabaseClient.from('direct_messages').insert([newDM]).then();
     logAdminAction(`"${toEmail}" adresine özel mesaj gönderdi.`);
     showToast("Özel mesaj başarıyla iletildi!", "success");
     document.getElementById('dmForm').reset();
@@ -1640,15 +1618,23 @@ function scaleAmount(amountStr, factor) {
     return amountStr.replace(/(\d+([\.,]\d+)?)/g, (match) => { let val = parseFloat(match.replace(',', '.')); if (isNaN(val)) return match; let newVal = val * factor; return Number.isInteger(newVal) ? newVal.toString() : parseFloat(newVal.toFixed(2)).toString().replace('.', ','); });
 }
 
-function publishAnnouncement(e) {
+async function publishAnnouncement(e) {
     e.preventDefault(); const title = document.getElementById('ann-title').value.trim(); const text = document.getElementById('ann-text').value.trim(); if(!text || !title) return;
     const newAnn = { id: "ANN_" + Date.now(), title: title, text: text, date: new Date().toLocaleString('tr-TR'), author: currentUser.name };
+    const { error } = await supabaseClient.rpc('admin_publish_announcement', { p_requester_email: currentUser.email, p_requester_token: sessionToken, p_id: newAnn.id, p_title: newAnn.title, p_text: newAnn.text, p_date: newAnn.date, p_author: newAnn.author });
+    if (error) { showToast("Duyuru yayınlanamadı.", "error"); return; }
     ANNOUNCEMENTS.push(newAnn); localStorage.setItem('mavitrif_ann', JSON.stringify(ANNOUNCEMENTS));
-    if(window.supabaseClient) supabaseClient.from('announcements').insert([newAnn]).then();
     logAdminAction(`"${title}" başlıklı duyuruyu yayınladı.`); showToast("Duyuru tüm personele iletildi!", "success"); e.target.reset(); renderAdminAnnouncements(); updateInboxBadge();
 }
 
-window.deleteAnnouncement = async function(id) { if(confirm("Bu duyuruyu silmek istediğinize emin misiniz?")) { ANNOUNCEMENTS = ANNOUNCEMENTS.filter(a => a.id !== id); localStorage.setItem('mavitrif_ann', JSON.stringify(ANNOUNCEMENTS)); if(window.supabaseClient) await deleteAnnouncementFromCloud(id); showToast("Duyuru sistemden silindi.", "success"); renderAdminAnnouncements(); } }
+window.deleteAnnouncement = async function(id) { 
+    if(confirm("Bu duyuruyu silmek istediğinize emin misiniz?")) { 
+        const { error } = await supabaseClient.rpc('admin_delete_announcement', { p_requester_email: currentUser.email, p_requester_token: sessionToken, p_id: id });
+        if (error) { showToast("Duyuru silinemedi.", "error"); return; }
+        ANNOUNCEMENTS = ANNOUNCEMENTS.filter(a => a.id !== id); localStorage.setItem('mavitrif_ann', JSON.stringify(ANNOUNCEMENTS)); 
+        showToast("Duyuru sistemden silindi.", "success"); renderAdminAnnouncements(); 
+    } 
+}
 function renderAdminAnnouncements() { const box = document.getElementById('admin-announcement-list'); if(!box || currentUser.role !== 'admin') return; if(ANNOUNCEMENTS.length === 0) { box.innerHTML = '<div class="empty-state">Yayınlanmış duyuru yok.</div>'; return; } box.innerHTML = [...ANNOUNCEMENTS].reverse().map(a => `<div style="background:white; padding:15px; border-radius:12px; border:1px solid var(--border); margin-bottom:10px; box-shadow:var(--soft-shadow);"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;"><strong>${a.title}</strong><div><span style="font-size:12px; color:var(--text-muted); margin-right:10px;">${a.date}</span><button type="button" onclick="deleteAnnouncement('${a.id}')" style="background:none; border:none; color:var(--red); font-size:16px; cursor:pointer;" title="Sil">🗑️</button></div></div><p style="font-size:14px; color:var(--text-main); margin-top:5px;">${a.text}</p></div>`).join(''); }
 function updateInboxBadge() { const badge = document.getElementById('inbox-badge'); if(!badge || !currentUser || currentUser.role === 'guest') return; const readCount = parseInt(localStorage.getItem(`readAnnCount_${currentUser.email}`)) || 0; const unread = ANNOUNCEMENTS.length - readCount; if(unread > 0) { badge.style.display = 'flex'; badge.innerText = unread; } else badge.style.display = 'none'; }
 function openInboxModal() { if(!currentUser) return; localStorage.setItem(`readAnnCount_${currentUser.email}`, ANNOUNCEMENTS.length); updateInboxBadge(); updateBadges(); const list = document.getElementById('inbox-list'); if(ANNOUNCEMENTS.length === 0) list.innerHTML = '<div class="empty-state">Posta kutunuz boş.</div>'; else list.innerHTML = [...ANNOUNCEMENTS].reverse().map(a => `<div style="background:#f8fafc; padding:20px; border-radius:12px; border-left:4px solid var(--primary); margin-bottom:10px;"><strong style="color:var(--bg-dark); font-size:16px;">${a.title}</strong><br><small style="color:var(--text-muted);">${a.date} - Şef: ${a.author}</small><p style="margin-top:10px; font-size:14px; line-height:1.6;">${a.text}</p></div>`).join(''); document.getElementById('inbox-modal').style.display = 'block'; }
