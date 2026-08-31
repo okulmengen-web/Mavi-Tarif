@@ -3,8 +3,8 @@
 // ==========================================
 
 var supabaseClient;
-var supabaseUrl = 'https://gnpmwqskzumuavlpucdg.supabase.co';
-var supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImducG13cXNrenVtdWF2bHB1Y2RnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExODM3MzcsImV4cCI6MjA5Njc1OTczN30.kBp-Gh69kEK0foJq7gq1YTEgejpwPZ7Mk3tZWSZHEcg';
+var supabaseUrl = 'https://iaqrflvtbwupsnyjrpsy.supabase.co';
+var supabaseKey = 'sb_publishable_3UxBW4bIzvkQI5KVKfnQ1A_psHgCA01';
 
 var emailjsServiceId = 'service_vhwzf9p';
 var emailjsTemplateId = 'template_oz2e5kk';
