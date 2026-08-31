@@ -169,13 +169,13 @@ async function syncCloudDataSilently() {
     currentUser.lastActive = Date.now();
 
     const [uData, rData, eData, dData, aData, sData, auData, rejData] = await Promise.all([
-        supabaseClient.rpc('get_public_users').then(r => r.data || []),
-        safeFetch('recipes'), safeFetch('pending_edits'),
-        safeFetch('direct_messages'), safeFetch('announcements'),
-        safeFetch('stock'), safeFetch('audit_logs', q => q.select('*').order('id', { ascending: false }).limit(100)),
-        safeFetch('rejected_requests')
-    ]);
-
+    supabaseClient.rpc('get_public_users').then(r => r.data || []),
+    supabaseClient.rpc('get_visible_recipes', { p_email: currentUser.email, p_token: sessionToken }).then(r => r.data || []),
+    supabaseClient.rpc('get_visible_edits', { p_email: currentUser.email, p_token: sessionToken }).then(r => r.data || []),
+    safeFetch('direct_messages'), safeFetch('announcements'),
+    safeFetch('stock'), safeFetch('audit_logs', q => q.select('*').order('id', { ascending: false }).limit(100)),
+    supabaseClient.rpc('get_my_rejected', { p_email: currentUser.email, p_token: sessionToken }).then(r => r.data || [])
+]);
     if(uData.length > 0) USERS = uData;
 
     if(rData.length > 0) RECIPES = rData.map(mapRecipeFromDB); else if(rData.length === 0 && RECIPES.length > 0) RECIPES = [];
@@ -256,9 +256,13 @@ async function startMaviTarif() {
 
  const [uData, bData, rData, sData, eData, auData, dmData, annData, rejData] = await Promise.all([
     supabaseClient.rpc('get_public_users').then(r => r.data || []),
-    safeFetch('blacklist'), safeFetch('recipes'), safeFetch('stock'),
-    safeFetch('pending_edits'), safeFetch('audit_logs', q => q.select('*').order('id', { ascending: false }).limit(100)),
-    safeFetch('direct_messages'), safeFetch('announcements'), safeFetch('rejected_requests')
+    safeFetch('blacklist'),
+    supabaseClient.rpc('get_visible_recipes', { p_email: null, p_token: null }).then(r => r.data || []),
+    safeFetch('stock'),
+    supabaseClient.rpc('get_visible_edits', { p_email: null, p_token: null }).then(r => r.data || []),
+    safeFetch('audit_logs', q => q.select('*').order('id', { ascending: false }).limit(100)),
+    safeFetch('direct_messages'), safeFetch('announcements'), 
+    Promise.resolve([])
 ]);
 
 if(uData.length > 0) USERS = uData; // artık mapUserFromDB gerekmiyor, alanlar zaten hazır
@@ -301,8 +305,7 @@ if(uData.length > 0) USERS = uData; // artık mapUserFromDB gerekmiyor, alanlar 
 }
 
 function applyAuthUI() {
-    if(!currentUser) return;
-    document.getElementById('sb-profile-name').textContent = currentUser.name; 
+    document.getElementById('sb-profile-img').src = currentUser.avatar || 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=150&q=80';
     const roleBadge = document.getElementById('sb-profile-role');
     const adminElements = document.querySelectorAll('.admin-only');
     const userElements = document.querySelectorAll('.user-only');
@@ -341,7 +344,7 @@ function applyAuthUI() {
         const upgradeCard = document.getElementById('guest-upgrade-card'); const mainProfileCard = document.getElementById('profile-main-card'); const passProfileCard = document.getElementById('profile-password-card');
         if(upgradeCard) upgradeCard.style.display = 'none'; if(mainProfileCard) mainProfileCard.style.display = 'flex'; if(passProfileCard) passProfileCard.style.display = 'block';
     }
-    if (currentUser.avatar) document.getElementById('sb-profile-img').src = currentUser.avatar;
+    document.getElementById('sb-profile-img').src = currentUser.avatar || 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=150&q=80';
     // --- SADECE SÜPER YÖNETİCİ BAKIM BUTONUNU GÖREBİLİR ---
     const maintBtn = document.getElementById('super-admin-maintenance-btn');
     if (maintBtn) {
@@ -1564,9 +1567,13 @@ function renderMyRecipes() { const b = document.getElementById('my-recipes-list'
 // ==========================================
 function loadProfile() { 
     if(!currentUser || currentUser.role === 'guest') return;
-    document.getElementById('input-name').value = currentUser.name || ''; document.getElementById('input-email').value = currentUser.email || ''; document.getElementById('input-bio').value = currentUser.bio || ''; 
+    const defaultAvatar = 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=150&q=80';
+    document.getElementById('input-name').value = currentUser.name || ''; 
+    document.getElementById('input-email').value = currentUser.email || ''; 
+    document.getElementById('input-bio').value = currentUser.bio || ''; 
     const revAuthor = document.getElementById('rev-author'); if(revAuthor) revAuthor.value = currentUser.name;
-    if (currentUser.avatar) { document.getElementById('profile-current-avatar').src = currentUser.avatar; document.getElementById('sb-profile-img').src = currentUser.avatar; } 
+    document.getElementById('profile-current-avatar').src = currentUser.avatar || defaultAvatar;
+    document.getElementById('sb-profile-img').src = currentUser.avatar || defaultAvatar;
 }
 
 function applyCustomAvatarFile() { 
@@ -1863,8 +1870,8 @@ async function finalizeLogin(msg) {
 
     applyAuthUI();
     if(currentUser && currentUser.role !== 'guest') {
-        const notebookData = await safeFetch('notebook', q => q.select('*').eq('user_email', currentUser.email));
-        if(notebookData.length > 0) NOTEBOOK_IDS = notebookData.map(n => n.recipe_id);
+        const { data: notebookData } = await supabaseClient.rpc('get_my_notebook', { p_email: currentUser.email, p_token: sessionToken });
+if(notebookData && notebookData.length > 0) NOTEBOOK_IDS = notebookData.map(n => n.recipe_id);
         await logAdminAction("Sisteme giriş yaptı.");
     }
        await cleanupOldData(); initApp();
