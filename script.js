@@ -308,6 +308,7 @@ if(uData.length > 0) USERS = uData; // artık mapUserFromDB gerekmiyor, alanlar 
 }
 
 function applyAuthUI() {
+    document.getElementById('sb-profile-name').textContent = currentUser.name;
     document.getElementById('sb-profile-img').src = currentUser.avatar || 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=150&q=80';
     const roleBadge = document.getElementById('sb-profile-role');
     const adminElements = document.querySelectorAll('.admin-only');
